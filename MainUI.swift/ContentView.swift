@@ -13,6 +13,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             LoginView()
+            
         }
         .environmentObject(appState)
     }
@@ -34,7 +35,7 @@ struct LoginView: View {
     @State private var showError = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 25) {
                 
                 Spacer()
@@ -75,13 +76,24 @@ struct LoginView: View {
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .padding(.top, 10)
+                
+                Button("Register") {
+                    RegisterView()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+                .padding(.top, 10)
 
                 // Hidden Navigation Logic
-                NavigationLink(
-                    destination: nextView(),
-                    isActive: $isLoggedIn
-                ) {
-                    EmptyView()
+                .navigationDestination(isPresented: $isLoggedIn) {
+                    if isFirstLogin {
+                        FirstTimePasswordView(role: userRole)
+                    } else {
+                        RoleRouterView(role: userRole)
+                    }
                 }
                 
                 Spacer()
@@ -92,19 +104,13 @@ struct LoginView: View {
     
     // MARK: - Login Logic (Backend Placeholder)
     func loginUser() {
-        // Simulated backend response (REPLACE with real API later)
-       // let responseRole = "Driver"
-        //let responseFirstLogin = true
-       // let responseToken = "xyz123"
-        
-        // Store backend response into app state
-        //userRole = responseRole
-        //isFirstLogin = responseFirstLogin
-        
-        // Optional: Save token for API authentication
-       // UserDefaults.standard.set(responseToken, forKey: "authToken")
-        
-        // Navigate
+
+        // simulate backend
+        userRole = " "
+        isFirstLogin = true
+
+        UserDefaults.standard.set("xyz123", forKey: "authToken")
+
         isLoggedIn = true
     }
 
@@ -113,7 +119,7 @@ struct LoginView: View {
     @ViewBuilder
     func nextView() -> some View {
         if isFirstLogin {
-            FirstTimePasswordView()
+            FirstTimePasswordView(role: userRole)
         } else {
             RoleRouterView(role: userRole)
         }

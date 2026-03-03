@@ -5,7 +5,6 @@
 //  Created by lounyveson vernet on 2/16/26.
 //
 
-
 import SwiftUI
 import PhotosUI
 import CoreLocation
@@ -21,7 +20,7 @@ struct AccidentReportView: View {
     let severityLevels = ["Minor", "Moderate", "Major"]
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     
