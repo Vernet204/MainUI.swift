@@ -14,8 +14,10 @@ struct FirstTimePasswordView: View {
     @State private var confirmPassword = ""
     @State private var errorMessage = ""
     @State private var passwordUpdated = false
+    var role: String
     
     var body: some View {
+        Text("First Time Password Setup for \(role)")
         VStack(spacing: 25) {
             
             Spacer()

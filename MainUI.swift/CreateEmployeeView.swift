@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct CreateEmployeeView: View {
-    
+    @Binding var employees: [Employee]
     @State private var fullName = ""
     @State private var email = ""
     @State private var phone = ""
@@ -115,8 +115,4 @@ struct CreateEmployeeView: View {
     }
 }
 
-#Preview {
-    CreateEmployeeView()
-        .environmentObject(AppState())
-}
 

@@ -9,10 +9,10 @@ import SwiftUI
 
 struct ManageFleetView: View {
     @State private var vehicles: [Vehicle] = [
-        .init(unitNumber: "Truck 101", plate: "FL-ABC123", status: "Active")
+        .init(unitNumber: "Truck 101", vin: "0123456789",make: "Dodge", model: "Ram", year: "2020", plateNumber: "FL-ABC123", inspectionStatus:"Active", insuranceStatus: "Active")
     ]
     @State private var drivers: [Driver] = [
-        .init(name: "John Driver", email: "driver@test.com", status: "Active")
+        .init(name: "John Driver", assignedVehicleNumber: "driver@test.com", status: "Active", Email: "John321@gmail.com")
     ]
 
     @State private var showAddVehicle = false
@@ -21,9 +21,8 @@ struct ManageFleetView: View {
     var body: some View {
         List {
             Section("Vehicles") {
-                ForEach(vehicles) { v in
+                ForEach($vehicles) { v in
                     VStack(alignment: .leading) {
-                        Text(v.unitNumber).font(.headline)
                         Text("\(v.plate) • \(v.status)").foregroundStyle(.secondary)
                     }
                 }
@@ -78,16 +77,22 @@ struct AddVehicleView: View {
                 }
             }
             .navigationTitle("Add Vehicle")
-            .toolbar {
+                .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        onAdd(.init(unitNumber: unitNumber, plate: plate, status: status))
+                        onAdd(
+                            Vehicle(
+                                unitNumber: unitNumber,
+                                plate: plate,
+                                status: status
+                            )
+                        )
                         dismiss()
                     }
-                    .disabled(unitNumber.isEmpty || plate.isEmpty)
                 }
             }
         }
@@ -122,7 +127,7 @@ struct AddDriverView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        onAdd(.init(name: name, email: email, status: status))
+                        onAdd(.init(name: name, assignedVehicleNumber: email, status: status, Email: email))
                         dismiss()
                     }
                     .disabled(name.isEmpty || email.isEmpty)

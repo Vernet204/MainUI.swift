@@ -20,38 +20,6 @@ struct Load: Identifiable {
     var status: String
 }
 
-struct LoadBoardView: View {
-
-    @EnvironmentObject private var appState: AppState
-
-    var body: some View {
-        VStack {
-            if appState.loads.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "tray")
-                        .font(.system(size: 40))
-                        .foregroundColor(.gray)
-
-                    Text("No Loads Yet")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-
-                    Text("Create a load and it will appear here.")
-                        .foregroundColor(.gray)
-                }
-                .padding()
-            } else {
-                List {
-                    ForEach(appState.loads) { load in
-                        LoadRowView(load: load)
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Load Board")
-    }
-}
 
 struct LoadRowView: View {
     let load: Load

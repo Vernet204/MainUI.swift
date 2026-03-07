@@ -21,7 +21,7 @@ struct ViewReport: View {
         List {
             Section {
                 Picker("Filter", selection: $filterType) {
-                    ForEach(reportTypes, id: \ .self) { t in
+                    ForEach(reportTypes, id: \.self) { t in
                         Text(t).tag(t)
                     }
                 }

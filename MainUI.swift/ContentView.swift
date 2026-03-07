@@ -133,91 +133,6 @@ struct LoginView: View {
 
 
 
-// MARK: - REGISTER VIEW
-struct RegisterView: View {
-    @State private var name = ""
-    @State private var email = ""
-    @State private var role = " "
-    
-    let roles = ["Fleet Owner", "Dispatcher", "Driver", ]
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Create Account")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            TextField("Full Name", text: $name)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-            
-            TextField("Email", text: $email)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-            
-            Picker("Role", selection: $role) {
-                ForEach(roles, id: \.self) { role in
-                    Text(role)
-                }
-            }
-            .pickerStyle(.menu)
-            
-            Button("Register") {}
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(14)
-            
-            Spacer()
-        }
-        .padding()
-    }
-}
-
-
-
-
-
-
-// MARK: - FLEET OWNER DASHBOARD
-struct OwnerDashboard: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            
-            Text("Fleet Owner Dashboard")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            NavigationLink(destination: CreateEmployeeView()) {
-                DashboardCard(
-                    title: "Create Employee Account",
-                    subtitle: "Assign roles to employees",
-                    icon: "person.badge.plus",
-                    color: .orange
-                )
-            }
-            
-            DashboardCard(
-                title: "Manage Fleet",
-                subtitle: " ",
-                icon: "truck.box",
-                color: .blue
-            )
-            DashboardCard(
-                title: "View Reports",
-                subtitle: " ",
-                icon: "chart.bar",
-                color: .green
-            )
-            
-            Spacer()
-        }
-        .padding()
-    }
-}
 
 
 
@@ -241,15 +156,7 @@ struct DispatcherDashboard: View {
                 )
             }
             
-            NavigationLink(destination: LoadBoardView()) {
-                DashboardCard(
-                    title: "Load Board",
-                    subtitle: "View and manage all loads",
-                    icon: "list.bullet.rectangle.fill",
-                    color: .orange
-                )
-            }
-            
+          
             NavigationLink(destination: AssignLoadView()) {
                 DashboardCard(
                     title: "Assign Drivers",

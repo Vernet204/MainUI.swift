@@ -1,3 +1,4 @@
+
 import Foundation
 
 // MARK: Employee
@@ -6,6 +7,7 @@ struct Employee: Identifiable {
     var name: String
     var role: String
     var hireDate: Date
+    var Email: String
 }
 
 // MARK: Client

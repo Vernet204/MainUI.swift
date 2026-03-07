@@ -11,11 +11,8 @@ import Foundation
 class AuthManager: ObservableObject {
     
     // Simulated database (later replace with Firebase/API)
-    @Published var users: [AppUser] = [
-        AppUser(email: "owner@test.com", password: "12345678", role: "Owner", isFirstLogin: false),
-        AppUser(email: "dispatch@test.com", password: "12345678", role: "Dispatcher", isFirstLogin: false),
-        AppUser(email: "driver@test.com", password: "temp1234", role: "Driver", isFirstLogin: true)
-    ]
+    @Published var users: [AppUser] = []
+    
     
     func login(email: String, password: String) -> AppUser? {
         return users.first { user in
@@ -31,4 +28,20 @@ class AuthManager: ObservableObject {
         }
     }
 
-}
+    func registerOwner(name: String, email: String, password: String) {
+
+        let newUser = AppUser(
+            id: UUID(),
+            name: name,
+            email: email,
+            password: password,
+            role: "owner",
+            isFirstLogin: true
+        )
+
+            users.append(newUser)
+        }
+    }
+    
+
+

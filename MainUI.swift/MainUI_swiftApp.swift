@@ -5,16 +5,18 @@
 //  Created by lounyveson vernet on 2/15/26.
 //
 import SwiftUI
+import FirebaseCore
 
 @main
 struct MainUI_swiftApp: App {
-    @StateObject private var appState = AppState()
+    init() {
+        FirebaseApp.configure()
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(appState)
         }
-    }
+}
 }
 
