@@ -40,7 +40,7 @@ struct DispatcherDashboardView: View {
                         
                         NavigationLink(destination: LoadBoardView()) {
                             DashboardCard(
-                                title: "View Loads", subtitle: "See all current loads", icon: "list.bullet", color: .yellow
+                                title: "View Loads", icon: "list.bullet", color: .yellow
                             )
                             // card UI
                         }
@@ -50,7 +50,7 @@ struct DispatcherDashboardView: View {
                         NavigationLink(destination: AssignLoadView()) {
                             DashboardCard(
                                 title: "Assign Loads",
-                                subtitle: "Assign loads to drivers",
+                                
                                 icon: "person.crop.circle.badge.checkmark",
                                 color: .green
                             )
@@ -75,45 +75,4 @@ struct DispatcherDashboardView: View {
 
 
 // Reusable Professional Card Component
-struct DashboardCard: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 15) {
-            
-            // ICON
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(color.opacity(0.15))
-                    .frame(width: 55, height: 55)
-                
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-            }
-            
-            // TEXT
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            // ARROW
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 3)
-    }
-}
+
