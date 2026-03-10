@@ -150,7 +150,6 @@ struct DispatcherDashboard: View {
             NavigationLink(destination: CreateLoadView()) {
                 DashboardCard(
                     title: "Create Load",
-                    subtitle: "Add new freight",
                     icon: "plus.rectangle.fill",
                     color: .blue
                 )
@@ -160,7 +159,6 @@ struct DispatcherDashboard: View {
             NavigationLink(destination: AssignLoadView()) {
                 DashboardCard(
                     title: "Assign Drivers",
-                    subtitle: " ",
                     icon: "person.2.fill",
                     color: .green
                 )

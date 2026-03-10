@@ -33,7 +33,12 @@ struct DispatcherDashboardView: View {
                         // CREATE LOAD
 
                         NavigationLink(destination: CreateLoadView()) {
-                            Text("Create Load")
+                            DashboardCard(
+                                title: "Create Load", icon:
+                                    "plus",
+                                    color: .blue
+                            )
+                            
                         }
                         
 

@@ -9,6 +9,7 @@ import FirebaseCore
 
 @main
 struct MainUI_swiftApp: App {
+
     init() {
         FirebaseApp.configure()
     }
@@ -17,6 +18,5 @@ struct MainUI_swiftApp: App {
         WindowGroup {
             ContentView()
         }
+    }
 }
-}
-

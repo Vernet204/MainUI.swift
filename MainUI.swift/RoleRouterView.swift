@@ -14,7 +14,7 @@ struct RoleRouterView: View {
     var body: some View {
         switch role {
         case "Owner":
-            OwnerDashboard()
+            OwnerDashboardView()
         case "Dispatcher":
             DispatcherDashboard()
         case "Driver":

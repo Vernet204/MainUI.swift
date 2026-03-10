@@ -77,4 +77,6 @@ struct OwnerDashboardView: View {
 }
 #Preview {
     OwnerDashboardView()
+        .environmentObject(AppState())
+        .environmentObject(AuthManager())
 }
