@@ -1,32 +1,31 @@
-//
-//  AccidentReportView 2.swift
-//  MainUI.swift
-//
-//  Created by lounyveson vernet on 2/16/26.
-//
-
 import SwiftUI
 import PhotosUI
 import CoreLocation
+import FirebaseStorage
 
 struct AccidentReportView: View {
     
-    @State private var description = ""
+    @State private var accidentDescription = ""
     @State private var severity = "Minor"
     @State private var injuries = false
+    
     @State private var selectedImages: [PhotosPickerItem] = []
     @State private var uiImages: [UIImage] = []
     
     let severityLevels = ["Minor", "Moderate", "Major"]
     
     var body: some View {
+        
         NavigationStack {
+            
             ScrollView {
+                
                 VStack(spacing: 20) {
                     
                     // INCIDENT DETAILS
                     SectionCard(title: "🚨 Incident Details") {
                         VStack(alignment: .leading, spacing: 10) {
+                            
                             Text("Date & Time: \(Date().formatted(date: .abbreviated, time: .shortened))")
                                 .font(.subheadline)
                             
@@ -36,18 +35,20 @@ struct AccidentReportView: View {
                         }
                     }
                     
-                    // SEVERITY PICKER
+                    // SEVERITY
                     SectionCard(title: "⚠️ Severity") {
+                        
                         Picker("Severity", selection: $severity) {
                             ForEach(severityLevels, id: \.self) { level in
                                 Text(level)
                             }
                         }
-                        .pickerStyle(SegmentedPickerStyle())
+                        .pickerStyle(.segmented)
                     }
                     
                     // PHOTO UPLOAD
                     SectionCard(title: "📸 Upload Photos") {
+                        
                         PhotosPicker(
                             selection: $selectedImages,
                             maxSelectionCount: 5,
@@ -62,7 +63,9 @@ struct AccidentReportView: View {
                         
                         ScrollView(.horizontal) {
                             HStack {
+                                
                                 ForEach(uiImages, id: \.self) { image in
+                                    
                                     Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
@@ -75,7 +78,8 @@ struct AccidentReportView: View {
                     
                     // DESCRIPTION
                     SectionCard(title: "📝 Description") {
-                        TextEditor(text: $description)
+                        
+                        TextEditor(text: $accidentDescription)
                             .frame(height: 120)
                             .padding(5)
                             .overlay(
@@ -86,12 +90,14 @@ struct AccidentReportView: View {
                     
                     // INJURY TOGGLE
                     SectionCard(title: "🩹 Injuries Involved") {
+                        
                         Toggle("Were there any injuries?", isOn: $injuries)
                             .font(.headline)
                     }
                     
                     // SUBMIT BUTTON
                     Button(action: submitReport) {
+                        
                         Text("SUBMIT REPORT")
                             .font(.headline)
                             .foregroundColor(.white)
@@ -109,13 +115,18 @@ struct AccidentReportView: View {
         }
     }
     
-    // Load Selected Images
+    // MARK: Load Selected Images
     func loadImages(from items: [PhotosPickerItem]) {
+        
         uiImages.removeAll()
+        
         for item in items {
+            
             item.loadTransferable(type: Data.self) { result in
+                
                 if case .success(let data?) = result,
                    let image = UIImage(data: data) {
+                    
                     DispatchQueue.main.async {
                         uiImages.append(image)
                     }
@@ -124,17 +135,50 @@ struct AccidentReportView: View {
         }
     }
     
-    // Submit Report Logic (Connect to Firebase/API later)
+    
+    // MARK: Submit Report
     func submitReport() {
+        
+        uploadImagesToFirebase()
+        
         print("Accident Report Submitted")
         print("Severity: \(severity)")
         print("Injuries: \(injuries)")
-        print("Description: \(description)")
+        print("Description: \(accidentDescription)")
+    }
+    
+    
+    // MARK: Upload Images
+    func uploadImagesToFirebase() {
+        
+        let storageRef = Storage.storage().reference()
+        
+        for image in uiImages {
+            
+            if let imageData = image.jpegData(compressionQuality: 0.8) {
+                
+                let imageRef = storageRef.child("accidents/\(UUID().uuidString).jpg")
+                
+                imageRef.putData(imageData, metadata: nil) { metadata, error in
+                    
+                    if let error = error {
+                        print("Upload failed:", error.localizedDescription)
+                        return
+                    }
+                    
+                    print("Image uploaded successfully")
+                }
+            }
+        }
     }
 }
 
-// Reusable Section Card (Professional UI)
+
+
+// MARK: Reusable Section Card
+
 struct SectionCard<Content: View>: View {
+    
     let title: String
     let content: Content
     
@@ -144,7 +188,9 @@ struct SectionCard<Content: View>: View {
     }
     
     var body: some View {
+        
         VStack(alignment: .leading, spacing: 12) {
+            
             Text(title)
                 .font(.headline)
             
@@ -155,8 +201,8 @@ struct SectionCard<Content: View>: View {
         .cornerRadius(15)
     }
 }
+
+
 #Preview {
     AccidentReportView()
-        .environmentObject(AppState())
 }
-

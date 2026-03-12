@@ -35,7 +35,7 @@ class AuthManager: ObservableObject {
             name: name,
             email: email,
             password: password,
-            role: "owner",
+            role: "",
             isFirstLogin: true
         )
 

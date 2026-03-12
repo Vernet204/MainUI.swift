@@ -4,8 +4,17 @@
 //
 //  Created by lounyveson vernet on 2/15/26.
 //
+
 import SwiftUI
 import FirebaseCore
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+    return true
+  }
+}
 
 @main
 struct MainUI_swiftApp: App {
@@ -20,3 +29,7 @@ struct MainUI_swiftApp: App {
         }
     }
 }
+#Preview {
+    ContentView()
+}
+

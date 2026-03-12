@@ -7,6 +7,7 @@
 
 
 import SwiftUI
+import FirebaseFirestore
 
 struct AddVehicleView: View {
 
@@ -20,44 +21,68 @@ struct AddVehicleView: View {
 
     var body: some View {
 
-        NavigationStack {
+        Form {
 
-            Form {
+            TextField("Unit Number", text: $unitNumber)
 
-                TextField("Unit Number", text: $unitNumber)
+            TextField("Plate", text: $plate)
 
-                TextField("Plate", text: $plate)
+            Picker("Status", selection: $status) {
+                Text("Active").tag("Active")
+                Text("In Maintenance").tag("In Maintenance")
+                Text("Inactive").tag("Inactive")
+            }
+        }
 
-                Picker("Status", selection: $status) {
-                    Text("Active").tag("Active")
-                    Text("In Maintenance").tag("In Maintenance")
-                    Text("Inactive").tag("Inactive")
-                }
+        .navigationTitle("Add Vehicle")
+
+        .toolbar {
+
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
             }
 
-            .navigationTitle("Add Vehicle")
+            ToolbarItem(placement: .confirmationAction) {
 
-            .toolbar {
+                Button("Add") {
 
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
+                    let vehicle = Vehicle(
+                        unitNumber: unitNumber,
+                        plate: plate,
+                        status: status
+                    )
 
-                ToolbarItem(placement: .confirmationAction) {
+                    saveVehicleToFirebase(vehicle)
 
-                    Button("Add") {
+                    onAdd(vehicle)
 
-                        let vehicle = Vehicle(
-                            unitNumber: unitNumber,
-                            plate: plate,
-                            status: status
-                        )
-
-                        onAdd(vehicle)
-                        dismiss()
-                    }
+                    dismiss()
                 }
             }
         }
     }
+
+
+    // MARK: - Firebase Save
+    func saveVehicleToFirebase(_ vehicle: Vehicle) {
+
+        Firestore.firestore()
+            .collection("vehicles")
+            .addDocument(data: [
+
+                "unitNumber": vehicle.unitNumber,
+                "plate": vehicle.plate,
+                "status": vehicle.status,
+                "createdAt": Timestamp()
+
+            ]) { error in
+
+                if let error = error {
+                    print("Error saving vehicle: \(error.localizedDescription)")
+                } else {
+                    print("Vehicle saved successfully")
+                }
+            }
+    }
 }
+

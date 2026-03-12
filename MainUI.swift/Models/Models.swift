@@ -7,6 +7,7 @@ struct Vehicle: Identifiable, Hashable {
     var status: String
 }
 
+
 struct Driver: Identifiable, Hashable {
     let id = UUID()
     var name: String

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct CreateLoadView: View {
 
@@ -20,6 +21,18 @@ struct CreateLoadView: View {
     @State private var status = "Unassigned"
 
     private let statuses = ["Unassigned", "Assigned", "In Transit", "Delivered"]
+    
+    func createLoad(pickup: String, delivery: String, rate: Double) {
+
+        Firestore.firestore().collection("loads").addDocument(data: [
+
+            "pickupLocation": pickup,
+            "deliveryLocation": delivery,
+            "rate": rate,
+            "status": "unassigned"
+
+        ])
+    }
 
     var body: some View {
         NavigationStack {

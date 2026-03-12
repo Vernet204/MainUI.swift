@@ -1,3 +1,11 @@
+//
+//  LoginView.swift
+//  MainUI.swift
+//
+//  Created by lounyveson vernet on 3/9/26.
+//
+
+
 import SwiftUI
 import FirebaseAuth
 
@@ -101,3 +109,8 @@ struct LoginView: View {
         }
     }
 }
+#Preview {
+    LoginView()
+        .environmentObject(AppState())
+}
+

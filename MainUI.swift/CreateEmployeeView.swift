@@ -7,6 +7,8 @@
 
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct CreateEmployeeView: View {
     @Binding var employees: [Employee]
@@ -72,7 +74,7 @@ struct CreateEmployeeView: View {
             
             // Create Button
             Button(action: {
-                createEmployee()
+                createEmployee(email: "", password: "", role: "")
             }) {
                 HStack {
                     Image(systemName: "person.badge.plus")
@@ -109,10 +111,18 @@ struct CreateEmployeeView: View {
         .background(Color(.systemGroupedBackground))
     }
     
-    func createEmployee() {
-        // Future: Connect to Firebase / Backend
-        print("Creating \(selectedRole): \(fullName)")
-    }
-}
+    func createEmployee(email: String, password: String, role: String) {
+
+        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+
+            guard let uid = result?.user.uid else { return }
+
+            Firestore.firestore().collection("users").document(uid).setData([
+                "email": email,
+                "role": role
+            ])
+
+        }
+    }}
 
 

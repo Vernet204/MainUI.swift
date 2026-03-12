@@ -1,23 +1,16 @@
-//
-//  DVIRInspectionView.swift
-//  MainUI.swift
-//
-//  Created by lounyveson vernet on 2/16/26.
-//
-
-
 import SwiftUI
+import FirebaseFirestore
 
 struct DVIRInspectionView: View {
     
-    // Driver & Vehicle Info (Compliance Required)
+    // Driver & Vehicle Info
     @State private var driverName = ""
     @State private var truckID = ""
     @State private var trailerID = ""
     @State private var odometer = ""
     @State private var inspectionDate = Date()
     
-    // Critical Safety Checks (DOT Relevant)
+    // Safety Checks
     @State private var brakesOK = false
     @State private var tiresOK = false
     @State private var lightsOK = false
@@ -25,32 +18,33 @@ struct DVIRInspectionView: View {
     @State private var hornOK = false
     @State private var engineOK = false
     
-    // Defect Reporting (Legally Important)
+    // Defects
     @State private var defectsFound = false
     @State private var defectDescription = ""
     
-    // Submission State
+    // Confirmation
     @State private var showConfirmation = false
     
     var body: some View {
+        
         Form {
             
-            // MARK: - Driver Information
-            Section(header: Text("Driver Information")) {
+            // Driver Info
+            Section("Driver Information") {
                 TextField("Driver Name", text: $driverName)
                 DatePicker("Inspection Date", selection: $inspectionDate, displayedComponents: .date)
             }
             
-            // MARK: - Vehicle Details
-            Section(header: Text("Vehicle Details")) {
+            // Vehicle Details
+            Section("Vehicle Details") {
                 TextField("Truck ID", text: $truckID)
                 TextField("Trailer ID", text: $trailerID)
                 TextField("Odometer Reading", text: $odometer)
                     .keyboardType(.numberPad)
             }
             
-            // MARK: - Safety Inspection Checklist
-            Section(header: Text("Safety Inspection Checklist")) {
+            // Safety Checklist
+            Section("Safety Inspection Checklist") {
                 Toggle("Brakes Operational", isOn: $brakesOK)
                 Toggle("Tires in Good Condition", isOn: $tiresOK)
                 Toggle("Lights & Signals Working", isOn: $lightsOK)
@@ -59,8 +53,9 @@ struct DVIRInspectionView: View {
                 Toggle("Engine & Fluids OK", isOn: $engineOK)
             }
             
-            // MARK: - Defects Section (Real Fleet Requirement)
-            Section(header: Text("Defects & Issues")) {
+            // Defects
+            Section("Defects & Issues") {
+                
                 Toggle("Defects Found?", isOn: $defectsFound)
                 
                 if defectsFound {
@@ -69,9 +64,13 @@ struct DVIRInspectionView: View {
                 }
             }
             
-            // MARK: - Submit Report (Compliance Logging)
+            // Submit Button
             Section {
-                Button(action: submitDVIR) {
+                
+                Button {
+                    submitDVIR()
+                } label: {
+                    
                     HStack {
                         Image(systemName: "checkmark.seal.fill")
                         Text("Submit DVIR Report")
@@ -90,10 +89,41 @@ struct DVIRInspectionView: View {
         }
     }
     
+    
+    // MARK: Submit DVIR
     func submitDVIR() {
-        // Future: Save to Firebase / Database
-        print("DVIR Report Logged for Compliance")
-        showConfirmation = true
+        
+        Firestore.firestore()
+            .collection("reports")
+            .addDocument(data: [
+                
+                "type": "inspection",
+                "driver": driverName,
+                "truckID": truckID,
+                "trailerID": trailerID,
+                "odometer": odometer,
+                "inspectionDate": Timestamp(date: inspectionDate),
+                
+                "brakesOK": brakesOK,
+                "tiresOK": tiresOK,
+                "lightsOK": lightsOK,
+                "mirrorsOK": mirrorsOK,
+                "hornOK": hornOK,
+                "engineOK": engineOK,
+                
+                "defectsFound": defectsFound,
+                "defectDescription": defectDescription,
+                
+                "status": "submitted"
+            ]) { error in
+                
+                if let error = error {
+                    print("Error submitting DVIR:", error.localizedDescription)
+                    return
+                }
+                
+                print("DVIR Report Logged for Compliance")
+                showConfirmation = true
+            }
     }
-
 }

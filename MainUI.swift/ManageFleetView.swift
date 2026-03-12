@@ -13,6 +13,8 @@ struct ManageFleetView: View {
 
     @State private var showAddVehicle = false
     @State private var showAddDriver = false
+    
+        
 
     var body: some View {
         NavigationStack {
@@ -61,9 +63,13 @@ struct ManageFleetView: View {
             }
             .navigationTitle("Manage Fleet")
             .sheet(isPresented: $showAddVehicle) {
-                AddVehicleView { newVehicle in
-                    vehicles.append(newVehicle)
+
+                NavigationStack {
+                    AddVehicleView { newVehicle in
+                        vehicles.append(newVehicle)
+                    }
                 }
+
             }
             .sheet(isPresented: $showAddDriver) {
                 AddDriverView { newDriver in

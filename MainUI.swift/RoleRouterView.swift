@@ -16,7 +16,7 @@ struct RoleRouterView: View {
         case "Owner":
             OwnerDashboardView()
         case "Dispatcher":
-            DispatcherDashboard()
+            DispatcherDashboardView()
         case "Driver":
             DriverDashboardView()
         default:

@@ -7,6 +7,7 @@
 
 
 import SwiftUI
+import FirebaseFirestore
 
 struct RepairReportView: View {
     
@@ -15,7 +16,7 @@ struct RepairReportView: View {
     @State private var truckID = ""
     @State private var trailerID = ""
     
-    // Issue Details (Core to Use Case 3)
+    // Issue Details
     @State private var issueType = "Mechanical"
     @State private var severity = "Medium"
     @State private var issueDescription = ""
@@ -28,21 +29,22 @@ struct RepairReportView: View {
     let severityLevels = ["Low", "Medium", "High", "Critical"]
     
     var body: some View {
+        
         Form {
             
-            // MARK: - Driver Information
-            Section(header: Text("Driver Information")) {
+            // Driver Information
+            Section("Driver Information") {
                 TextField("Driver Name", text: $driverName)
             }
             
-            // MARK: - Vehicle Information
-            Section(header: Text("Vehicle Information")) {
+            // Vehicle Information
+            Section("Vehicle Information") {
                 TextField("Truck ID", text: $truckID)
                 TextField("Trailer ID", text: $trailerID)
             }
             
-            // MARK: - Repair Issue Details (Core Use Case)
-            Section(header: Text("Repair Issue Details")) {
+            // Repair Issue Details
+            Section("Repair Issue Details") {
                 
                 Picker("Issue Type", selection: $issueType) {
                     ForEach(issueTypes, id: \.self) { type in
@@ -62,9 +64,13 @@ struct RepairReportView: View {
                     .lineLimit(3...6)
             }
             
-            // MARK: - Submit Button (Use Case 3 Submission)
+            // Submit Button
             Section {
-                Button(action: submitRepairReport) {
+                
+                Button {
+                    submitRepairReport()
+                } label: {
+                    
                     HStack {
                         Image(systemName: "wrench.and.screwdriver.fill")
                         Text("Submit Repair Report")
@@ -83,21 +89,41 @@ struct RepairReportView: View {
         }
     }
     
+    
+    // MARK: Save to Firebase
     func submitRepairReport() {
-        // Future: Send to Firebase / Fleet Database
-        print("Repair Report Logged:")
-        print("Driver: \(driverName)")
-        print("Truck: \(truckID)")
-        print("Issue: \(issueType)")
-        print("Severity: \(severity)")
-        print("Description: \(issueDescription)")
         
-        reportSubmitted = true
+        Firestore.firestore()
+            .collection("reports")
+            .addDocument(data: [
+                
+                "type": "repair",
+                "driverName": driverName,
+                "truckID": truckID,
+                "trailerID": trailerID,
+                "issueType": issueType,
+                "severity": severity,
+                "issueDescription": issueDescription,
+                "location": location,
+                "dateReported": Timestamp(),
+                "status": "open"
+                
+            ]) { error in
+                
+                if let error = error {
+                    print("Error saving repair report:", error.localizedDescription)
+                    return
+                }
+                
+                print("Repair Report saved successfully")
+                reportSubmitted = true
+            }
     }
 }
 
 #Preview {
-    RepairReportView()
-        .environmentObject(AppState())
+    NavigationStack {
+        RepairReportView()
+    }
+    .environmentObject(AppState())
 }
-
