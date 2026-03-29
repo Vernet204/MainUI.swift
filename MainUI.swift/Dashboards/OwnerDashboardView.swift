@@ -1,31 +1,23 @@
-//
-//  OwnerDashboardView.swift
-//  MainUI.swift
-//
-//  Created by lounyveson vernet on 3/7/26.
-//
-
-
 import SwiftUI
 
 struct OwnerDashboardView: View {
-    
+
+    @EnvironmentObject var authManager: AuthManager
+
     var body: some View {
-        
+
         NavigationStack {
-            
+
             ScrollView {
-                
+
                 VStack(spacing: 20) {
-                    
+
                     Text("Owner Dashboard")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .padding(.top)
-                    
-                    
+
                     // Fleet Management
-                    
                     NavigationLink(destination: ManageFleetView()) {
                         DashboardCard(
                             title: "Manage Fleet",
@@ -33,12 +25,8 @@ struct OwnerDashboardView: View {
                             color: .blue
                         )
                     }
-                    
-                    
-                    
-                    
+
                     // Employees
-                    
                     NavigationLink(destination: EmployeeManagementView()) {
                         DashboardCard(
                             title: "Employees",
@@ -46,10 +34,8 @@ struct OwnerDashboardView: View {
                             color: .purple
                         )
                     }
-                    
-                    
+
                     // Reports
-                    
                     NavigationLink(destination: ViewReport()) {
                         DashboardCard(
                             title: "Reports",
@@ -57,10 +43,8 @@ struct OwnerDashboardView: View {
                             color: .orange
                         )
                     }
-                    
-                    
+
                     // Performance
-                    
                     NavigationLink(destination: PerformanceView()) {
                         DashboardCard(
                             title: "Performance",
@@ -68,15 +52,25 @@ struct OwnerDashboardView: View {
                             color: .red
                         )
                     }
-                    
                 }
                 .padding()
             }
+            // ✅ .toolbar goes on NavigationStack, not on a NavigationLink
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Logout") {
+                        authManager.logout()
+                    }
+                    .foregroundColor(.red)
+                }
+            }
+            .navigationTitle("Owner Dashboard")
         }
     }
 }
+
 #Preview {
     OwnerDashboardView()
-        .environmentObject(AppState())
         .environmentObject(AuthManager())
+        .environmentObject(AppState())
 }

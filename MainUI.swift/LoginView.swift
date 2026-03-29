@@ -2,115 +2,86 @@
 //  LoginView.swift
 //  MainUI.swift
 //
-//  Created by lounyveson vernet on 3/9/26.
+//  Created by lounyveson vernet on 3/29/26.
 //
-
-
 import SwiftUI
-import FirebaseAuth
 
 struct LoginView: View {
-    
-    @EnvironmentObject var appState: AppState
-    
+
+    @EnvironmentObject var authManager: AuthManager
+
     @State private var email = ""
     @State private var password = ""
-    
-    // Navigation
-    @State private var isLoggedIn = false
-    @State private var isFirstLogin = false
-    @State private var userRole = "driver"
-    @State private var showError = false
-    
+    @State private var errorMessage = ""
+    @State private var isLoggingIn = false
+
     var body: some View {
-        
         VStack(spacing: 25) {
-            
+
             Spacer()
-            
+
             Text("Freight Carrier Assist")
                 .font(.title)
                 .fontWeight(.bold)
-            
+
             Text("Company Login Portal")
                 .foregroundColor(.gray)
-            
-            // Email
+
             TextField("Email Address", text: $email)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
                 .textInputAutocapitalization(.never)
-            
-            // Password
+                .autocorrectionDisabled()
+
             SecureField("Password", text: $password)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
-            
-            if showError {
-                Text("Login failed. Check credentials.")
+
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
                     .foregroundColor(.red)
                     .font(.caption)
             }
-            
-            // Login Button
-            Button("Login") {
-                loginUser()
+
+            Button(action: attemptLogin) {
+                if isLoggingIn {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                } else {
+                    Text("Login")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(12)
-            .padding(.top, 10)
-            
+            .disabled(isLoggingIn)
+
             Spacer()
         }
         .padding()
-        
-        // Correct navigation location
-        .navigationDestination(isPresented: $isLoggedIn) {
-            nextView()
-        }
     }
-    
-    
-    // MARK: - Firebase Login
-    func loginUser() {
-        
-        Auth.auth().signIn(withEmail: email, password: password) { result, error in
-            
+
+    // MARK: - Login Action
+    private func attemptLogin() {
+        errorMessage = ""
+        isLoggingIn = true
+
+        authManager.login(email: email, password: password) { error in
+            isLoggingIn = false
             if let error = error {
-                print(error.localizedDescription)
-                showError = true
-                return
+                errorMessage = error
             }
-            
-            // Example user routing
-            userRole = "driver"
-            isFirstLogin = false
-            
-            UserDefaults.standard.set("xyz123", forKey: "authToken")
-            
-            isLoggedIn = true
+            // On success: ContentView reacts to authManager.appUser automatically
         }
     }
-    
-    
-    // MARK: - Smart Routing
-    @ViewBuilder
-    func nextView() -> some View {
-        
-        if isFirstLogin {
-            FirstTimePasswordView(role: userRole)
-        } else {
-            RoleRouterView(role: userRole)
-        }
-    }
-}
-#Preview {
-    LoginView()
-        .environmentObject(AppState())
 }
 
+#Preview {
+    LoginView()
+        .environmentObject(AuthManager())
+}

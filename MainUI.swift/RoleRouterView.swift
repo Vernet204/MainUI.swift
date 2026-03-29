@@ -2,7 +2,7 @@
 //  RoleRouterView.swift
 //  MainUI.swift
 //
-//  Created by lounyveson vernet on 2/15/26.
+//  Created by lounyveson vernet on 3/29/26.
 //
 
 
@@ -10,20 +10,30 @@ import SwiftUI
 
 struct RoleRouterView: View {
     var role: String
-    
+
     var body: some View {
-        switch role {
-        case "Owner":
+        // Use lowercased() so "Owner", "owner", "OWNER" all work
+        switch role.lowercased() {
+        case "owner":
             OwnerDashboardView()
-        case "Dispatcher":
+        case "dispatcher":
             DispatcherDashboardView()
-        case "Driver":
+        case "driver":
             DriverDashboardView()
         default:
-            Text("Access Denied")
-                .font(.title)
+            VStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.orange)
+
+                Text("Role Not Found")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("Contact your administrator.")
+                    .foregroundColor(.gray)
+            }
         }
     }
-
 }
 
