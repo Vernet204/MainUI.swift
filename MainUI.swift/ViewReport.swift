@@ -1,140 +1,162 @@
 import SwiftUI
 import FirebaseFirestore
 
-/// Owner: View reports (inspection / accident / repair, etc.)
 struct ViewReport: View {
 
     @EnvironmentObject private var appState: AppState
     @State private var filterType: String = "All"
+    @State private var selectedReport: ReportItem? = nil
+
+    private let filters = ["All", "Repair", "Accident"]
 
     var body: some View {
-
         List {
 
-            // FILTER
+            // FILTER TABS
             Section {
                 Picker("Filter", selection: $filterType) {
-                    ForEach(reportTypes, id: \.self) { type in
-                        Text(type).tag(type)
-                    }
+                    ForEach(filters, id: \.self) { Text($0).tag($0) }
                 }
                 .pickerStyle(.segmented)
             }
 
             // REPORT LIST
             Section("Reports") {
-
                 if filteredReports.isEmpty {
-
-                    ContentUnavailableView(
-                        "No reports",
-                        systemImage: "doc.text.magnifyingglass"
-                    )
-
+                    ContentUnavailableView("No Reports", systemImage: "doc.text.magnifyingglass")
                 } else {
-
                     ForEach(filteredReports.sorted(by: { $0.date > $1.date })) { report in
-
-                        VStack(alignment: .leading, spacing: 6) {
-
-                            HStack {
-
-                                Text(report.reportNumber)
-                                    .font(.headline)
-
-                                Spacer()
-
-                                Text(report.reportType)
+                        Button {
+                            selectedReport = report
+                        } label: {
+                            // BEFORE CLICK — summary row
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(report.reportNumber)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text(report.reportType)
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(.thinMaterial)
+                                        .clipShape(Capsule())
+                                }
+                                Text("Vehicle: \(report.vehicleNumber)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                Text("Driver: \(report.driverName)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                Text(report.date.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.thinMaterial)
-                                    .clipShape(Capsule())
+                                    .foregroundColor(.secondary)
                             }
-
-                            Text("Vehicle: \(report.vehicleNumber)")
-                                .font(.subheadline)
-
-                            Text("Driver: \(report.driverName)")
-                                .font(.subheadline)
-
-                            Text(report.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
+                    // Swipe to delete
                     .onDelete { indexSet in
                         let ids = filteredReports.map { $0.id }
                         let toDelete = indexSet.map { ids[$0] }
-
-                        appState.reports.removeAll { report in
-                            toDelete.contains(report.id)
-                        }
+                        appState.reports.removeAll { toDelete.contains($0.id) }
                     }
                 }
             }
         }
         .navigationTitle("View Reports")
-
-        // LOAD FIREBASE DATA
-        .onAppear {
-            fetchReports()
+        .onAppear { fetchReports() }
+        // AFTER CLICK — detail sheet
+        .sheet(item: $selectedReport) { report in
+            ReportDetailView(report: report)
         }
     }
 
-    // MARK: - FILTERED REPORTS
     private var filteredReports: [ReportItem] {
-
-        if filterType == "All" {
-            return appState.reports
-        }
-
-        return appState.reports.filter {
-            $0.reportType == filterType
-        }
+        filterType == "All" ? appState.reports :
+        appState.reports.filter { $0.reportType == filterType }
     }
 
-    // MARK: - REPORT TYPES
-    private var reportTypes: [String] {
-
-        let types = Set(appState.reports.map { $0.reportType })
-
-        return ["All"] + types.sorted()
-    }
-
-    // MARK: - FIREBASE FETCH
     func fetchReports() {
-
-        Firestore.firestore()
-            .collection("reports")
-            .getDocuments { snapshot, error in
-
-                if let error = error {
-                    print("Error loading reports:", error.localizedDescription)
-                    return
-                }
-
-                guard let documents = snapshot?.documents else { return }
-
-                appState.reports = documents.compactMap { doc in
-
-                    let data = doc.data()
-
-                    return ReportItem(
-                        reportNumber: data["reportNumber"] as? String ?? "",
-                        reportType: data["reportType"] as? String ?? "",
-                        vehicleNumber: data["vehicleNumber"] as? String ?? "",
-                        driverName: data["driverName"] as? String ?? "",
-                        date: (data["date"] as? Timestamp)?.dateValue() ?? Date()
-                    )
-                }
+        Firestore.firestore().collection("reports").getDocuments { snapshot, error in
+            guard let documents = snapshot?.documents else { return }
+            appState.reports = documents.compactMap { doc in
+                let data = doc.data()
+                return ReportItem(
+                    reportNumber: data["reportNumber"] as? String ?? doc.documentID,
+                    reportType: data["type"] as? String ?? "",
+                    vehicleNumber: data["truckID"] as? String ?? "",
+                    driverName: data["driverName"] as? String ?? data["driver"] as? String ?? "",
+                    date: (data["date"] as? Timestamp)?.dateValue() ?? Date()
+                )
             }
+        }
     }
 }
 
-#Preview {
+// MARK: - Report Detail View (after click)
+struct ReportDetailView: View {
 
+    @Environment(\.dismiss) var dismiss
+    let report: ReportItem
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Report Info") {
+                    DetailRow(label: "Report #", value: report.reportNumber)
+                    DetailRow(label: "Type", value: report.reportType)
+                    DetailRow(label: "Date & Time", value: report.date.formatted(date: .long, time: .shortened))
+                }
+
+                Section("Vehicle & Driver") {
+                    DetailRow(label: "Vehicle (Unit #)", value: report.vehicleNumber)
+                    DetailRow(label: "Driver Name", value: report.driverName)
+                }
+
+                if report.reportType == "Repair" {
+                    Section("Repair Details") {
+                        DetailRow(label: "Status", value: "Open")
+                        DetailRow(label: "Severity", value: "—")
+                        DetailRow(label: "Location", value: "—")
+                        DetailRow(label: "Issue Type", value: "—")
+                        DetailRow(label: "Trailer ID", value: "—")
+                        DetailRow(label: "Issue Description", value: "—")
+                    }
+                }
+
+                if report.reportType == "Accident" {
+                    Section("Accident Details") {
+                        DetailRow(label: "Severity", value: "—")
+                        DetailRow(label: "Location", value: "—")
+                        DetailRow(label: "Trailer ID", value: "—")
+                        DetailRow(label: "Issue Description", value: "—")
+                    }
+                }
+            }
+            .navigationTitle(report.reportType + " Report")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct DetailRow: View {
+    let label: String
+    let value: String
+    var body: some View {
+        HStack {
+            Text(label).foregroundColor(.gray)
+            Spacer()
+            Text(value).fontWeight(.medium)
+        }
+    }
+}
+#Preview {
     NavigationStack {
         ViewReport()
     }

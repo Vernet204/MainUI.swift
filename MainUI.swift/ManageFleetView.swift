@@ -2,79 +2,74 @@
 //  ManageFleet.swift
 //  MainUI.swift
 //
-//  Created by lounyveson vernet on 2/21/26.
+//  Created by lounyveson vernet on 4/4/26.
 //
 import SwiftUI
 
 struct ManageFleetView: View {
 
+    @State private var employees: [Employee] = []
     @State private var vehicles: [Vehicle] = []
-    @State private var drivers: [Driver] = []
-
+    @State private var showAddEmployee = false
     @State private var showAddVehicle = false
-    @State private var showAddDriver = false
-    
-        
 
     var body: some View {
-        NavigationStack {
+        List {
 
-            List {
-
-                Section("Vehicles") {
-
-                    ForEach(vehicles) { v in
-                        VStack(alignment: .leading) {
-                            Text(v.unitNumber)
-                                .font(.headline)
-
-                            Text("\(v.plate) • \(v.status)")
-                                .foregroundColor(.secondary)
-                        }
+            // MARK: - Employees
+            Section("Employees") {
+                ForEach(employees) { emp in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(emp.name)
+                            .font(.headline)
+                        Text(emp.role)
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        Text(emp.Email)
+                            .font(.caption)
+                            .foregroundColor(.gray)
                     }
-                    .onDelete { indexSet in
-                        vehicles.remove(atOffsets: indexSet)
-                    }
-
-                    Button("Add Vehicle") {
-                        showAddVehicle = true
-                    }
+                    .padding(.vertical, 4)
                 }
+                .onDelete { employees.remove(atOffsets: $0) }
 
-                Section("Drivers") {
-
-                    ForEach(drivers) { d in
-                        VStack(alignment: .leading) {
-                            Text(d.name)
-                                .font(.headline)
-
-                            Text("\(d.email) • \(d.status)")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        drivers.remove(atOffsets: indexSet)
-                    }
-
-                    Button("Add Driver") {
-                        showAddDriver = true
-                    }
+                Button {
+                    showAddEmployee = true
+                } label: {
+                    Label("Add New Employee", systemImage: "person.badge.plus")
                 }
             }
-            .navigationTitle("Manage Fleet")
-            .sheet(isPresented: $showAddVehicle) {
 
-                NavigationStack {
-                    AddVehicleView { newVehicle in
-                        vehicles.append(newVehicle)
+            // MARK: - Vehicles
+            Section("Vehicles") {
+                ForEach(vehicles) { v in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Unit: \(v.unitNumber)")
+                            .font(.headline)
+                        Text("Plate: \(v.plate)")
+                            .font(.caption)
+                        Text("Status: \(v.status)")
+                            .font(.caption)
+                            .foregroundColor(v.status == "Active" ? .green : .orange)
                     }
+                    .padding(.vertical, 4)
                 }
+                .onDelete { vehicles.remove(atOffsets: $0) }
 
-            }
-            .sheet(isPresented: $showAddDriver) {
-                AddDriverView { newDriver in
-                    drivers.append(newDriver)
+                Button {
+                    showAddVehicle = true
+                } label: {
+                    Label("Add New Vehicle", systemImage: "plus.circle")
                 }
+            }
+        }
+        .navigationTitle("Manage Fleet")
+        .sheet(isPresented: $showAddEmployee) {
+            AddEmployeeView { emp in employees.append(emp) }
+        }
+        .sheet(isPresented: $showAddVehicle) {
+            NavigationStack {
+                AddVehicleView { v in vehicles.append(v) }
             }
         }
     }

@@ -5,66 +5,44 @@ struct OwnerDashboardView: View {
     @EnvironmentObject var authManager: AuthManager
 
     var body: some View {
-
         NavigationStack {
-
             ScrollView {
+                VStack(spacing: 16) {
 
-                VStack(spacing: 20) {
-
-                    Text("Owner Dashboard")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .padding(.top)
-
-                    // Fleet Management
+                    // 1. Manage Fleet
                     NavigationLink(destination: ManageFleetView()) {
-                        DashboardCard(
-                            title: "Manage Fleet",
-                            icon: "truck.box.fill",
-                            color: .blue
-                        )
+                        DashboardCard(title: "Manage Fleet", icon: "truck.box.fill", color: .blue)
                     }
 
-                    // Employees
-                    NavigationLink(destination: EmployeeManagementView()) {
-                        DashboardCard(
-                            title: "Employees",
-                            icon: "person.3.fill",
-                            color: .purple
-                        )
-                    }
-
-                    // Reports
+                    // 2. View Reports
                     NavigationLink(destination: ViewReport()) {
-                        DashboardCard(
-                            title: "Reports",
-                            icon: "doc.text.fill",
-                            color: .orange
-                        )
+                        DashboardCard(title: "View Reports", icon: "doc.text.fill", color: .orange)
                     }
 
-                    // Performance
-                    NavigationLink(destination: PerformanceView()) {
-                        DashboardCard(
-                            title: "Performance",
-                            icon: "chart.bar.fill",
-                            color: .red
-                        )
+                    // 3. Clientele
+                    NavigationLink(destination: ClienteleView()) {
+                        DashboardCard(title: "Clientele", icon: "building.2.fill", color: .green)
+                    }
+
+                    // Dispatch Role
+                    NavigationLink(destination: DispatcherDashboardView()) {
+                        DashboardCard(title: "Dispatch Role", icon: "antenna.radiowaves.left.and.right", color: .purple)
+                    }
+
+                    // Driver Role
+                    NavigationLink(destination: DriverDashboardView()) {
+                        DashboardCard(title: "Driver Role", icon: "person.fill", color: .red)
                     }
                 }
                 .padding()
             }
-            // ✅ .toolbar goes on NavigationStack, not on a NavigationLink
+            .navigationTitle("Owner Dashboard")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Logout") {
-                        authManager.logout()
-                    }
-                    .foregroundColor(.red)
+                    Button("Logout") { authManager.logout() }
+                        .foregroundColor(.red)
                 }
             }
-            .navigationTitle("Owner Dashboard")
         }
     }
 }
