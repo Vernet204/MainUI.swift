@@ -16,22 +16,18 @@ struct DriverDashboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
 
-                    // Assigned Loads
                     NavigationLink(destination: DriverLoadBoardView()) {
                         DashboardButton(title: "Assigned Loads", color: .blue)
                     }
 
-                    // DVIR Inspection
                     NavigationLink(destination: DVIRInspectionView()) {
                         DashboardButton(title: "DVIR Inspection", color: .green)
                     }
 
-                    // Repair Report
                     NavigationLink(destination: RepairReportView()) {
                         DashboardButton(title: "Repair Report", color: .orange)
                     }
 
-                    // Accident Report
                     NavigationLink(destination: AccidentReportView()) {
                         DashboardButton(title: "Report an Accident", color: .red)
                     }
@@ -119,24 +115,22 @@ struct DriverLoadBoardView: View {
         }
     }
 
-    // MARK: - Accept / Decline Handler
+    // MARK: - Handle Actions
     func handleAction(_ action: LoadAction, for load: DriverLoad) {
         let db = Firestore.firestore()
 
         switch action {
+
         case .accept:
-            // Mark load as In Transit
             db.collection("loads").document(load.id).updateData([
                 "status": "In Transit",
                 "driverAccepted": true
             ])
-            // Update local state
             if let index = loads.firstIndex(where: { $0.id == load.id }) {
                 loads[index].status = "In Transit"
             }
 
         case .decline:
-            // Send back to Unassigned so dispatcher can reassign
             db.collection("loads").document(load.id).updateData([
                 "status": "Unassigned",
                 "assignedDriver": "",
@@ -144,14 +138,29 @@ struct DriverLoadBoardView: View {
                 "driverAccepted": false,
                 "declinedBy": authManager.appUser?.name ?? "Unknown"
             ])
-            // Remove from driver's list
             loads.removeAll { $0.id == load.id }
+
+        case .delivered:
+            db.collection("loads").document(load.id).updateData([
+                "status": "Delivered",
+                "deliveredAt": Timestamp(),
+                "deliveredBy": authManager.appUser?.name ?? "Unknown"
+            ]) { error in
+                if let error = error {
+                    print("Error marking delivered: \(error.localizedDescription)")
+                    return
+                }
+                print("Load marked as delivered")
+            }
+            if let index = loads.firstIndex(where: { $0.id == load.id }) {
+                loads[index].status = "Delivered"
+            }
         }
 
         selectedLoad = nil
     }
 
-    // MARK: - Fetch Loads Assigned to This Driver
+    // MARK: - Fetch Assigned Loads
     func fetchAssignedLoads() {
         guard let driverName = authManager.appUser?.name else { return }
 
@@ -160,36 +169,39 @@ struct DriverLoadBoardView: View {
             .whereField("assignedDriver", isEqualTo: driverName)
             .getDocuments { snapshot, error in
                 guard let docs = snapshot?.documents else { return }
-                loads = docs.map { doc in
-                    let d = doc.data()
-                    return DriverLoad(
-                        id: doc.documentID,
-                        loadID: d["loadID"] as? String ?? doc.documentID,
-                        pickupLocation: d["pickupLocation"] as? String ?? "",
-                        deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                        pickupDate: d["pickupDate"] as? String ?? "TBD",
-                        dropoffDate: d["dropoffDate"] as? String ?? "TBD",
-                        status: d["status"] as? String ?? "Assigned"
-                    )
+                DispatchQueue.main.async {
+                    loads = docs.map { doc in
+                        let d = doc.data()
+                        return DriverLoad(
+                            id: doc.documentID,
+                            loadID: d["loadID"] as? String ?? doc.documentID,
+                            pickupLocation: d["pickupLocation"] as? String ?? "",
+                            deliveryLocation: d["deliveryLocation"] as? String ?? "",
+                            pickupDate: d["pickupDate"] as? String ?? "TBD",
+                            dropoffDate: d["dropoffDate"] as? String ?? "TBD",
+                            status: d["status"] as? String ?? "Assigned"
+                        )
+                    }
                 }
             }
     }
 
     func statusColor(_ status: String) -> Color {
         switch status {
-        case "Assigned": return .blue
+        case "Assigned":  return .blue
         case "In Transit": return .purple
         case "Delivered": return .green
-        default: return .gray
+        default:          return .gray
         }
     }
 }
 
-// MARK: - Accept / Decline Sheet
+// MARK: - Load Action Enum
 enum LoadAction {
-    case accept, decline
+    case accept, decline, delivered
 }
 
+// MARK: - Accept / Decline / Delivered Sheet
 struct LoadAcceptDeclineView: View {
 
     @Environment(\.dismiss) var dismiss
@@ -197,50 +209,90 @@ struct LoadAcceptDeclineView: View {
     var onAction: (LoadAction) -> Void
 
     @State private var showDeclineConfirm = false
+    @State private var showDeliveredConfirm = false
 
     var body: some View {
         NavigationStack {
             List {
+
+                // LOAD DETAILS
                 Section("Load Details") {
                     DetailRow(label: "Load ID", value: load.loadID)
                     DetailRow(label: "Pickup", value: load.pickupLocation)
                     DetailRow(label: "Pickup Date & Time", value: load.pickupDate)
                     DetailRow(label: "Destination", value: load.deliveryLocation)
                     DetailRow(label: "Destination Date & Time", value: load.dropoffDate)
+                    DetailRow(label: "Current Status", value: load.status)
                 }
 
-                Section {
-                    // ACCEPT
-                    Button {
-                        onAction(.accept)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Accept Load")
-                                .fontWeight(.semibold)
+                // ACTIONS
+                Section("Actions") {
+
+                    // ✅ Show Accept + Decline only when Assigned
+                    if load.status.lowercased() == "assigned" {
+
+                        Button {
+                            onAction(.accept)
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Accept Load")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+
+                        Button {
+                            showDeclineConfirm = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "xmark.circle.fill")
+                                Text("Decline Load")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
                     }
 
-                    // DECLINE
-                    Button {
-                        showDeclineConfirm = true
-                    } label: {
+                    // ✅ Show Mark as Delivered only when In Transit
+                    if load.status.lowercased() == "in transit" {
+
+                        Button {
+                            showDeliveredConfirm = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "shippingbox.fill")
+                                Text("Mark as Delivered")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                    }
+
+                    // ✅ Show delivered badge when already delivered
+                    if load.status.lowercased() == "delivered" {
                         HStack {
-                            Image(systemName: "xmark.circle.fill")
-                            Text("Decline Load")
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                            Text("This load has been delivered.")
+                                .foregroundColor(.green)
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
                     }
                 }
             }
@@ -250,7 +302,8 @@ struct LoadAcceptDeclineView: View {
                     Button("Back") { dismiss() }
                 }
             }
-            // Decline confirmation
+
+            // DECLINE CONFIRMATION
             .confirmationDialog(
                 "Decline this load?",
                 isPresented: $showDeclineConfirm,
@@ -263,6 +316,21 @@ struct LoadAcceptDeclineView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This load will be sent back to the dispatcher for reassignment.")
+            }
+
+            // DELIVERED CONFIRMATION
+            .confirmationDialog(
+                "Mark as Delivered?",
+                isPresented: $showDeliveredConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Yes, Mark Delivered") {
+                    onAction(.delivered)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will mark the load as delivered.")
             }
         }
     }
