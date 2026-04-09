@@ -1,3 +1,12 @@
+//
+//  ReportDetailView.swift
+//  MainUI.swift
+//
+//  Created by lounyveson vernet on 4/8/26.
+//
+import SwiftUI
+import FirebaseFirestore
+
 // MARK: - Report Detail View (after click)
 struct ReportDetailView: View {
 
@@ -54,23 +63,6 @@ struct ReportDetailView: View {
                     Button("Close") { dismiss() }
                 }
             }
-        }
-    }
-}
-
-// MARK: - Reusable Detail Row
-struct DetailRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundColor(.gray)
-            Spacer()
-            Text(value)
-                .fontWeight(.medium)
-                .multilineTextAlignment(.trailing)
         }
     }
 }

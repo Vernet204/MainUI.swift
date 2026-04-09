@@ -5,6 +5,8 @@ struct Vehicle: Identifiable, Hashable {
     var unitNumber: String
     var plate: String
     var status: String
+    var assignedDriverID: String = ""    // ✅ add this
+    var assignedDriverName: String = ""  // ✅ add this
 }
 
 

@@ -1,3 +1,11 @@
+//
+//  DetailRow.swift
+//  MainUI.swift
+//
+//  Created by lounyveson vernet on 4/8/26.
+//
+
+
 import SwiftUI
 
 struct DetailRow: View {
