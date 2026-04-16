@@ -14,7 +14,6 @@ struct ManageFleetView: View {
     @State private var showAddEmployee = false
     @State private var showAddVehicle = false
     @State private var isLoading = true
-
     @State private var selectedEmployee: EmployeeDetail? = nil
     @State private var selectedVehicle: Vehicle? = nil
 
@@ -23,7 +22,6 @@ struct ManageFleetView: View {
 
             // MARK: - Employees
             Section("Employees") {
-
                 if isLoading {
                     ProgressView("Loading...")
                 } else if employees.isEmpty {
@@ -31,7 +29,6 @@ struct ManageFleetView: View {
                         .foregroundColor(.gray)
                 } else {
                     ForEach(employees) { emp in
-                        // ✅ Tappable row
                         Button {
                             selectedEmployee = emp
                         } label: {
@@ -61,7 +58,6 @@ struct ManageFleetView: View {
 
             // MARK: - Vehicles
             Section("Vehicles") {
-
                 if isLoading {
                     ProgressView("Loading...")
                 } else if vehicles.isEmpty {
@@ -69,7 +65,6 @@ struct ManageFleetView: View {
                         .foregroundColor(.gray)
                 } else {
                     ForEach(vehicles) { v in
-                        // ✅ Tappable row
                         Button {
                             selectedVehicle = v
                         } label: {
@@ -127,13 +122,11 @@ struct ManageFleetView: View {
         .sheet(isPresented: $showAddVehicle, onDismiss: fetchVehicles) {
             AddVehicleView { v in vehicles.append(v) }
         }
-        // ✅ Employee detail sheet
         .sheet(item: $selectedEmployee) { emp in
             EmployeeDetailView(employee: emp) {
                 fetchEmployees()
             }
         }
-        // ✅ Vehicle detail sheet
         .sheet(item: $selectedVehicle) { vehicle in
             VehicleDetailView(vehicle: vehicle) {
                 fetchVehicles()
@@ -226,26 +219,147 @@ struct EmployeeDetailView: View {
     let employee: EmployeeDetail
     var onDismiss: () -> Void
 
+    @State private var isEditing = false
+    @State private var name = ""
+    @State private var email = ""
+    @State private var phone = ""
+    @State private var role = "Driver"
+    @State private var isSaving = false
+    @State private var errorMessage = ""
+
+    let roles = ["Driver", "Dispatcher"]
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Employee Info") {
-                    DetailRow(label: "Full Name", value: employee.name)
-                    DetailRow(label: "Role", value: employee.role)
-                    DetailRow(label: "Email", value: employee.email)
-                    DetailRow(label: "Phone", value: employee.phone.isEmpty ? "—" : employee.phone)
+                if isEditing {
+
+                    // EDIT MODE
+                    Section("Employee Info") {
+                        TextField("Full Name", text: $name)
+                        TextField("Email", text: $email)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                        TextField("Phone", text: $phone)
+                            .keyboardType(.phonePad)
+                    }
+
+                    Section("Role") {
+                        Picker("Role", selection: $role) {
+                            ForEach(roles, id: \.self) { Text($0) }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    if !errorMessage.isEmpty {
+                        Section {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    }
+
+                    Section {
+                        Button {
+                            saveChanges()
+                        } label: {
+                            if isSaving {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Save Changes")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .disabled(isSaving)
+                    }
+
+                } else {
+
+                    // VIEW MODE
+                    Section("Employee Info") {
+                        DetailRow(label: "Full Name", value: name)
+                        DetailRow(label: "Role", value: role)
+                        DetailRow(label: "Email", value: email.isEmpty ? "—" : email)
+                        DetailRow(label: "Phone", value: phone.isEmpty ? "—" : phone)
+                    }
                 }
             }
-            .navigationTitle(employee.name)
+            .navigationTitle(name.isEmpty ? "Employee" : name)
+            .onAppear { loadFields() }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(isEditing ? "Cancel" : "Close") {
+                        if isEditing {
+                            isEditing = false
+                            loadFields() // ✅ Reset unsaved changes
+                        } else {
+                            onDismiss()
+                            dismiss()
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") {
+                    Button(isEditing ? "Done" : "Edit") {
+                        if isEditing {
+                            saveChanges()
+                        } else {
+                            isEditing = true
+                        }
+                    }
+                    .fontWeight(isEditing ? .bold : .regular)
+                }
+            }
+        }
+    }
+
+    // MARK: - Load Fields
+    func loadFields() {
+        name = employee.name
+        email = employee.email
+        phone = employee.phone
+        role = employee.role
+    }
+
+    // MARK: - Save Changes
+    func saveChanges() {
+        guard !name.isEmpty else {
+            errorMessage = "Name cannot be empty."
+            return
+        }
+
+        isSaving = true
+        errorMessage = ""
+
+        Firestore.firestore()
+            .collection("users")
+            .document(employee.id)
+            .updateData([
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "role": role
+            ]) { error in
+                DispatchQueue.main.async {
+                    isSaving = false
+                    if let error = error {
+                        errorMessage = error.localizedDescription
+                        print("❌ Error updating employee: \(error.localizedDescription)")
+                    } else {
+                        isEditing = false
                         onDismiss()
                         dismiss()
                     }
                 }
             }
-        }
     }
 }
 
@@ -256,33 +370,216 @@ struct VehicleDetailView: View {
     let vehicle: Vehicle
     var onDismiss: () -> Void
 
+    @State private var isEditing = false
+    @State private var unitNumber = ""
+    @State private var plate = ""
+    @State private var status = "Active"
+    @State private var isSaving = false
+    @State private var errorMessage = ""
+    @State private var drivers: [DriverOption] = []
+    @State private var assignedDriverID = ""
+    @State private var assignedDriverName = ""
+
+    let statuses = ["Active", "In Maintenance", "Inactive"]
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Vehicle Info") {
-                    DetailRow(label: "Unit Number", value: vehicle.unitNumber)
-                    DetailRow(label: "Plate", value: vehicle.plate)
-                    DetailRow(label: "Status", value: vehicle.status)
-                }
+                if isEditing {
 
-                Section("Assignment") {
-                    DetailRow(
-                        label: "Assigned Driver",
-                        value: vehicle.assignedDriverName.isEmpty
-                            ? "Unassigned" : vehicle.assignedDriverName
-                    )
+                    // EDIT MODE
+                    Section("Vehicle Info") {
+                        TextField("Unit Number", text: $unitNumber)
+                        TextField("Plate", text: $plate)
+                        Picker("Status", selection: $status) {
+                            ForEach(statuses, id: \.self) { Text($0) }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    Section("Assign Driver") {
+                        Picker("Select Driver", selection: $assignedDriverID) {
+                            Text("Unassigned").tag("")
+                            ForEach(drivers) { driver in
+                                Text(driver.name).tag(driver.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .onChange(of: assignedDriverID) { id in
+                            assignedDriverName = drivers.first(where: {
+                                $0.id == id
+                            })?.name ?? ""
+                        }
+                    }
+
+                    if !errorMessage.isEmpty {
+                        Section {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    }
+
+                    Section {
+                        Button {
+                            saveChanges()
+                        } label: {
+                            if isSaving {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Save Changes")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .disabled(isSaving)
+                    }
+
+                } else {
+
+                    // VIEW MODE
+                    Section("Vehicle Info") {
+                        DetailRow(label: "Unit Number", value: unitNumber)
+                        DetailRow(label: "Plate", value: plate)
+                        DetailRow(label: "Status", value: status)
+                    }
+
+                    Section("Assignment") {
+                        DetailRow(
+                            label: "Assigned Driver",
+                            value: assignedDriverName.isEmpty
+                                ? "Unassigned" : assignedDriverName
+                        )
+                    }
                 }
             }
-            .navigationTitle("Unit \(vehicle.unitNumber)")
+            .navigationTitle("Unit \(unitNumber)")
+            .onAppear {
+                loadFields()
+                fetchDrivers()
+            }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") {
-                        onDismiss()
-                        dismiss()
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(isEditing ? "Cancel" : "Close") {
+                        if isEditing {
+                            isEditing = false
+                            loadFields() // ✅ Reset unsaved changes
+                        } else {
+                            onDismiss()
+                            dismiss()
+                        }
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isEditing ? "Done" : "Edit") {
+                        if isEditing {
+                            saveChanges()
+                        } else {
+                            isEditing = true
+                        }
+                    }
+                    .fontWeight(isEditing ? .bold : .regular)
                 }
             }
         }
     }
-}
 
+    // MARK: - Load Fields
+    func loadFields() {
+        unitNumber = vehicle.unitNumber
+        plate = vehicle.plate
+        status = vehicle.status
+        assignedDriverName = vehicle.assignedDriverName
+        assignedDriverID = vehicle.assignedDriverID
+    }
+
+    // MARK: - Fetch Drivers
+    func fetchDrivers() {
+        Firestore.firestore()
+            .collection("users")
+            .whereField("role", isEqualTo: "Driver")
+            .getDocuments { snapshot, _ in
+                guard let docs = snapshot?.documents else { return }
+                DispatchQueue.main.async {
+                    drivers = docs.map { doc in
+                        DriverOption(
+                            id: doc.documentID,
+                            name: doc.data()["name"] as? String ?? ""
+                        )
+                    }
+                }
+            }
+    }
+
+    // MARK: - Save Changes
+    func saveChanges() {
+        guard !unitNumber.isEmpty else {
+            errorMessage = "Unit number cannot be empty."
+            return
+        }
+
+        isSaving = true
+        errorMessage = ""
+
+        let db = Firestore.firestore()
+
+        // ✅ Step 1 — Find and update vehicle document
+        db.collection("vehicles")
+            .whereField("unitNumber", isEqualTo: vehicle.unitNumber)
+            .getDocuments { snapshot, error in
+                guard let doc = snapshot?.documents.first else {
+                    DispatchQueue.main.async {
+                        isSaving = false
+                        errorMessage = "Vehicle not found."
+                    }
+                    return
+                }
+
+                // ✅ Update vehicle fields
+                doc.reference.updateData([
+                    "unitNumber": unitNumber,
+                    "plate": plate,
+                    "status": status,
+                    "assignedDriverID": assignedDriverID,
+                    "assignedDriverName": assignedDriverName
+                ])
+
+                // ✅ Step 2 — Assign vehicle to new driver
+                if !assignedDriverID.isEmpty {
+                    db.collection("users")
+                        .document(assignedDriverID)
+                        .updateData([
+                            "vehicleUnit": unitNumber,
+                            "vehiclePlate": plate
+                        ])
+                }
+
+                // ✅ Step 3 — Remove vehicle from old driver if changed
+                if vehicle.assignedDriverID != assignedDriverID,
+                   !vehicle.assignedDriverID.isEmpty {
+                    db.collection("users")
+                        .document(vehicle.assignedDriverID)
+                        .updateData([
+                            "vehicleUnit": "",
+                            "vehiclePlate": "",
+                            "vehicleID": ""
+                        ])
+                }
+
+                DispatchQueue.main.async {
+                    isSaving = false
+                    isEditing = false
+                    onDismiss()
+                    dismiss()
+                }
+            }
+    }
+}

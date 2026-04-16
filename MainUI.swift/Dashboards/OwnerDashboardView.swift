@@ -18,12 +18,28 @@ struct OwnerDashboardView: View {
                     NavigationLink(destination: ViewReport()) {
                         DashboardCard(title: "View Reports", icon: "doc.text.fill", color: .orange)
                     }
+                    // load history
+                    NavigationLink(destination: LoadHistoryView()) {
+                        DashboardCard(
+                            title: "Load History",
+                            icon: "clock.arrow.circlepath",
+                            color: .teal
+                        )
+                    }
 
                     // 3. Clientele
                     NavigationLink(destination: ClienteleView()) {
                         DashboardCard(title: "Clientele", icon: "building.2.fill", color: .green)
                     }
-
+                    // maintence
+                    NavigationLink(destination: MaintenanceView()) {
+                        DashboardCard(
+                            title: "Maintenance",
+                            icon: "wrench.and.screwdriver.fill",
+                            color: .indigo
+                        )
+                    }
+                    
                     // Dispatch Role
                     NavigationLink(destination: DispatcherDashboardView()) {
                         DashboardCard(title: "Dispatch Role", icon: "antenna.radiowaves.left.and.right", color: .purple)

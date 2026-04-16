@@ -47,32 +47,34 @@ class AuthManager: ObservableObject {
                 DispatchQueue.main.async {
                     if let error = error {
                         print("❌ Firestore error: \(error.localizedDescription)")
-                        self.appUser = nil
                         self.isLoading = false
                         return
                     }
 
                     guard let data = snapshot?.data() else {
-                        print("⚠️ No Firestore document for UID: \(uid)")
-                        self.appUser = nil
+                        print("❌ No Firestore document found for UID: \(uid)")
                         self.isLoading = false
                         return
                     }
 
-                    print("📄 Document data: \(data)")
+                    print("📄 Raw Firestore data: \(data)")
 
+                    let name = data["name"] as? String ?? ""
                     let role = data["role"] as? String ?? ""
-                    print("👤 Role fetched: \(role)")
+
+                    print("👤 Name: \(name)")
+                    print("👤 Role: \(role)")
 
                     self.appUser = AppUser(
                         id: UUID(),
-                        name: data["name"] as? String ?? "Unknown",
+                        name: name,
                         email: data["email"] as? String ?? "",
                         password: "",
                         role: role,
                         isFirstLogin: data["firstLogin"] as? Bool ?? false
                     )
 
+                    print("✅ appUser set: \(self.appUser?.name ?? "nil")")
                     self.isLoading = false
                 }
             }

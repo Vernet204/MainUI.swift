@@ -16,18 +16,22 @@ struct DriverDashboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
 
+                    // Assigned Loads
                     NavigationLink(destination: DriverLoadBoardView()) {
                         DashboardButton(title: "Assigned Loads", color: .blue)
                     }
 
+                    // DVIR Inspection
                     NavigationLink(destination: DVIRInspectionView()) {
                         DashboardButton(title: "DVIR Inspection", color: .green)
                     }
 
+                    // Repair Report
                     NavigationLink(destination: RepairReportView()) {
                         DashboardButton(title: "Repair Report", color: .orange)
                     }
 
+                    // Accident Report
                     NavigationLink(destination: AccidentReportView()) {
                         DashboardButton(title: "Report an Accident", color: .red)
                     }
@@ -48,22 +52,44 @@ struct DriverDashboardView: View {
 }
 
 // MARK: - Driver Load Board
+// MARK: - Driver Load Board
 struct DriverLoadBoardView: View {
 
     @EnvironmentObject var authManager: AuthManager
     @State private var loads: [DriverLoad] = []
     @State private var selectedLoad: DriverLoad? = nil
+    @State private var isLoading = true
+    @State private var listener: ListenerRegistration? = nil
+
+    // ✅ Computed property for active loads only
+    var activeLoads: [DriverLoad] {
+        loads.filter { $0.status.lowercased() != "delivered" }
+    }
 
     var body: some View {
         List {
-            if loads.isEmpty {
+            if isLoading {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading your loads...")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    Spacer()
+                }
+                .padding()
+
+            } else if activeLoads.isEmpty {
                 ContentUnavailableView(
-                    "No Assigned Loads",
+                    "No Active Loads",
                     systemImage: "tray",
-                    description: Text("Your dispatcher will assign loads here.")
+                    description: Text("You have no active loads. Your dispatcher will assign loads here.")
                 )
+
             } else {
-                ForEach(loads) { load in
+                ForEach(activeLoads) { load in
                     Button {
                         selectedLoad = load
                     } label: {
@@ -85,21 +111,33 @@ struct DriverLoadBoardView: View {
 
                             Divider()
 
-                            Label("Pickup: \(load.pickupLocation)", systemImage: "mappin.circle")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            Label(
+                                "Pickup: \(load.pickupLocation)",
+                                systemImage: "mappin.circle"
+                            )
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
 
-                            Label("Date & Time: \(load.pickupDate)", systemImage: "clock")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            Label(
+                                "Date & Time: \(load.pickupDate)",
+                                systemImage: "clock"
+                            )
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
 
-                            Label("Destination: \(load.deliveryLocation)", systemImage: "mappin.and.ellipse")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            Label(
+                                "Destination: \(load.deliveryLocation)",
+                                systemImage: "mappin.and.ellipse"
+                            )
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
 
-                            Label("Date & Time: \(load.dropoffDate)", systemImage: "clock.fill")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            Label(
+                                "Date & Time: \(load.dropoffDate)",
+                                systemImage: "clock.fill"
+                            )
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 6)
                     }
@@ -107,7 +145,20 @@ struct DriverLoadBoardView: View {
             }
         }
         .navigationTitle("Assigned Loads")
-        .onAppear { fetchAssignedLoads() }
+        .onAppear {
+            startListening()
+        }
+        .onDisappear {
+            listener?.remove()
+            listener = nil
+        }
+        // ✅ Re-trigger if appUser loads after view appears
+        .onChange(of: authManager.appUser?.name) { newName in
+            guard let newName = newName, !newName.isEmpty else { return }
+            guard listener == nil else { return }
+            print("✅ Driver name now available via onChange: \(newName)")
+            startListening()
+        }
         .sheet(item: $selectedLoad) { load in
             LoadAcceptDeclineView(load: load) { action in
                 handleAction(action, for: load)
@@ -115,60 +166,40 @@ struct DriverLoadBoardView: View {
         }
     }
 
-    // MARK: - Handle Actions
-    func handleAction(_ action: LoadAction, for load: DriverLoad) {
-        let db = Firestore.firestore()
-
-        switch action {
-
-        case .accept:
-            db.collection("loads").document(load.id).updateData([
-                "status": "In Transit",
-                "driverAccepted": true
-            ])
-            if let index = loads.firstIndex(where: { $0.id == load.id }) {
-                loads[index].status = "In Transit"
+    // MARK: - Real-time Listener
+    func startListening() {
+        guard let driverName = authManager.appUser?.name,
+              !driverName.isEmpty else {
+            print("⚠️ Driver name not available yet — retrying...")
+            guard listener == nil else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                startListening()
             }
-
-        case .decline:
-            db.collection("loads").document(load.id).updateData([
-                "status": "Unassigned",
-                "assignedDriver": "",
-                "assignedVehicle": "",
-                "driverAccepted": false,
-                "declinedBy": authManager.appUser?.name ?? "Unknown"
-            ])
-            loads.removeAll { $0.id == load.id }
-
-        case .delivered:
-            db.collection("loads").document(load.id).updateData([
-                "status": "Delivered",
-                "deliveredAt": Timestamp(),
-                "deliveredBy": authManager.appUser?.name ?? "Unknown"
-            ]) { error in
-                if let error = error {
-                    print("Error marking delivered: \(error.localizedDescription)")
-                    return
-                }
-                print("Load marked as delivered")
-            }
-            if let index = loads.firstIndex(where: { $0.id == load.id }) {
-                loads[index].status = "Delivered"
-            }
+            return
         }
 
-        selectedLoad = nil
-    }
+        guard listener == nil else {
+            print("✅ Listener already running for: \(driverName)")
+            return
+        }
 
-    // MARK: - Fetch Assigned Loads
-    func fetchAssignedLoads() {
-        guard let driverName = authManager.appUser?.name else { return }
+        print("✅ Starting listener for driver: \(driverName)")
 
-        Firestore.firestore()
+        listener = Firestore.firestore()
             .collection("loads")
             .whereField("assignedDriver", isEqualTo: driverName)
-            .getDocuments { snapshot, error in
-                guard let docs = snapshot?.documents else { return }
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("❌ Driver loads error: \(error.localizedDescription)")
+                    DispatchQueue.main.async { isLoading = false }
+                    return
+                }
+
+                guard let docs = snapshot?.documents else {
+                    DispatchQueue.main.async { isLoading = false }
+                    return
+                }
+
                 DispatchQueue.main.async {
                     loads = docs.map { doc in
                         let d = doc.data()
@@ -182,16 +213,55 @@ struct DriverLoadBoardView: View {
                             status: d["status"] as? String ?? "Assigned"
                         )
                     }
+                    isLoading = false
+                    print("✅ Loads fetched: \(docs.count) total, \(activeLoads.count) active")
                 }
             }
     }
 
+    // MARK: - Handle Actions
+    func handleAction(_ action: LoadAction, for load: DriverLoad) {
+        let db = Firestore.firestore()
+
+        switch action {
+
+        case .accept:
+            db.collection("loads").document(load.id).updateData([
+                "status": "In Transit",
+                "driverAccepted": true
+            ])
+
+        case .decline:
+            db.collection("loads").document(load.id).updateData([
+                "status": "Unassigned",
+                "assignedDriver": "",
+                "assignedVehicle": "",
+                "driverAccepted": false,
+                "declinedBy": authManager.appUser?.name ?? "Unknown"
+            ])
+
+        case .delivered:
+            db.collection("loads").document(load.id).updateData([
+                "status": "Delivered",
+                "deliveredAt": Timestamp(),
+                "deliveredBy": authManager.appUser?.name ?? "Unknown"
+            ]) { error in
+                if let error = error {
+                    print("❌ Error marking delivered: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        // ✅ Snapshot listener handles UI update automatically
+        selectedLoad = nil
+    }
+
     func statusColor(_ status: String) -> Color {
         switch status {
-        case "Assigned":  return .blue
+        case "Assigned":   return .blue
         case "In Transit": return .purple
-        case "Delivered": return .green
-        default:          return .gray
+        case "Delivered":  return .green
+        default:           return .gray
         }
     }
 }
@@ -228,7 +298,7 @@ struct LoadAcceptDeclineView: View {
                 // ACTIONS
                 Section("Actions") {
 
-                    // ✅ Show Accept + Decline only when Assigned
+                    // ✅ Accept + Decline only when Assigned
                     if load.status.lowercased() == "assigned" {
 
                         Button {
@@ -263,7 +333,7 @@ struct LoadAcceptDeclineView: View {
                         }
                     }
 
-                    // ✅ Show Mark as Delivered only when In Transit
+                    // ✅ Mark as Delivered only when In Transit
                     if load.status.lowercased() == "in transit" {
 
                         Button {
@@ -282,16 +352,20 @@ struct LoadAcceptDeclineView: View {
                         }
                     }
 
-                    // ✅ Show delivered badge when already delivered
+                    // ✅ Delivered badge when already delivered
                     if load.status.lowercased() == "delivered" {
                         HStack {
-                            Image(systemName: "checkmark.seal.fill")
-                                .foregroundColor(.green)
-                            Text("This load has been delivered.")
-                                .foregroundColor(.green)
-                                .fontWeight(.semibold)
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.green)
+                                Text("This load has been delivered.")
+                                    .foregroundColor(.green)
+                                    .fontWeight(.semibold)
+                            }
+                            Spacer()
                         }
-                        .frame(maxWidth: .infinity)
                         .padding()
                     }
                 }

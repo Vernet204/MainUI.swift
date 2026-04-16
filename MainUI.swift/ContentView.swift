@@ -14,7 +14,6 @@ struct ContentView: View {
     var body: some View {
         Group {
             if authManager.isLoading {
-                // Splash / loading screen while Firebase checks auth state
                 VStack(spacing: 16) {
                     ProgressView()
                     Text("Loading...")
@@ -22,7 +21,7 @@ struct ContentView: View {
                 }
 
             } else if let user = authManager.appUser {
-                // User is logged in — route by role
+
                 if user.isFirstLogin {
                     FirstTimePasswordView(role: user.role)
                         .environmentObject(authManager)
@@ -30,19 +29,23 @@ struct ContentView: View {
                     RoleRouterView(role: user.role)
                         .environmentObject(authManager)
                         .environmentObject(appState)
+                        // ✅ Start listeners when user is logged in
+                        .onAppear {
+                            appState.startListeningToLoads()
+                            appState.startListeningToReports()
+                        }
                 }
 
             } else {
-                // Not logged in
                 NavigationStack {
                     LoginView()
                         .environmentObject(authManager)
+                        // ✅ Stop listeners when user logs out
+                        .onAppear {
+                            appState.stopAllListeners()
+                        }
                 }
             }
         }
     }
-}
-
-#Preview {
-    ContentView()
 }

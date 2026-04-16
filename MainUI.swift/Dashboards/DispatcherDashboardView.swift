@@ -5,6 +5,7 @@
 //  Created by lounyveson vernet on 3/29/26.
 //
 import SwiftUI
+import FirebaseFirestore
 
 struct DispatcherDashboardView: View {
 
@@ -16,7 +17,6 @@ struct DispatcherDashboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
 
-                    // Load Board
                     NavigationLink(destination: DispatcherLoadBoardView()) {
                         DashboardCard(
                             title: "Load Board",
@@ -25,7 +25,6 @@ struct DispatcherDashboardView: View {
                         )
                     }
 
-                    // Assign Loads
                     NavigationLink(destination: AssignLoadView()) {
                         DashboardCard(
                             title: "Assign Loads",
@@ -33,6 +32,24 @@ struct DispatcherDashboardView: View {
                             color: .green
                         )
                     }
+
+                    NavigationLink(destination: DriverScheduleView()) {
+                        DashboardCard(
+                            title: "Driver Schedule",
+                            icon: "calendar.badge.clock",
+                            color: .purple
+                        )
+                    }
+                    
+                    // load history
+                    NavigationLink(destination: LoadHistoryView()) {
+                        DashboardCard(
+                            title: "Load History",
+                            icon: "clock.arrow.circlepath",
+                            color: .teal
+                        )
+                    }
+                    
                 }
                 .padding()
             }
@@ -44,6 +61,7 @@ struct DispatcherDashboardView: View {
                 }
             }
         }
+        
     }
 }
 

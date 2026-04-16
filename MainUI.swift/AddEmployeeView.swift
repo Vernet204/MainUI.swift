@@ -5,7 +5,6 @@
 //  Created by lounyveson vernet on 4/4/26.
 //
 
-
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -21,11 +20,11 @@ struct AddEmployeeView: View {
     @State private var selectedRole = "Driver"
     @State private var tempPassword = ""
     @State private var errorMessage = ""
+    @State private var isCreating = false  // ✅ was missing
 
     let roles = ["Driver", "Dispatcher"]
     var onAdd: (Employee) -> Void
 
-    // ✅ Secondary Firebase app to create users without affecting owner session
     private var secondaryApp: FirebaseApp? {
         if FirebaseApp.app(name: "Secondary") == nil {
             let options = FirebaseApp.app()!.options
@@ -61,6 +60,17 @@ struct AddEmployeeView: View {
                             .font(.caption)
                     }
                 }
+
+                // ✅ Loading indicator while creating
+                if isCreating {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView("Creating employee...")
+                            Spacer()
+                        }
+                    }
+                }
             }
             .navigationTitle("Add Employee")
             .toolbar {
@@ -69,6 +79,7 @@ struct AddEmployeeView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { createEmployee() }
+                        .disabled(isCreating)
                 }
             }
         }
@@ -79,42 +90,68 @@ struct AddEmployeeView: View {
         guard !email.isEmpty else { errorMessage = "Enter email."; return }
         guard tempPassword.count >= 6 else { errorMessage = "Password must be 6+ characters."; return }
 
-        // ✅ Use secondary app so owner stays logged in
-        guard let secondary = secondaryApp else { return }
-        let secondaryAuth = Auth.auth(app: secondary)
+        isCreating = true
+        errorMessage = ""
 
-        secondaryAuth.createUser(withEmail: email, password: tempPassword) { result, error in
-            if let error = error {
-                DispatchQueue.main.async {
-                    errorMessage = error.localizedDescription
+        Firestore.firestore()
+            .collection("users")
+            .whereField("email", isEqualTo: email.lowercased().trimmingCharacters(in: .whitespaces))
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    DispatchQueue.main.async {
+                        errorMessage = error.localizedDescription
+                        isCreating = false
+                    }
+                    return
                 }
-                return
+
+                if let snapshot = snapshot, !snapshot.documents.isEmpty {
+                    DispatchQueue.main.async {
+                        errorMessage = "An employee with this email already exists."
+                        isCreating = false
+                    }
+                    return
+                }
+
+                guard let secondary = secondaryApp else { return }
+                let secondaryAuth = Auth.auth(app: secondary)
+
+                secondaryAuth.createUser(
+                    withEmail: email.lowercased().trimmingCharacters(in: .whitespaces),
+                    password: tempPassword
+                ) { result, error in
+                    if let error = error {
+                        DispatchQueue.main.async {
+                            errorMessage = error.localizedDescription
+                            isCreating = false
+                        }
+                        return
+                    }
+
+                    guard let uid = result?.user.uid else { return }
+
+                    Firestore.firestore().collection("users").document(uid).setData([
+                        "name": fullName,
+                        "email": email.lowercased().trimmingCharacters(in: .whitespaces),
+                        "phone": phone,
+                        "role": selectedRole,
+                        "firstLogin": true
+                    ])
+
+                    try? secondaryAuth.signOut()
+
+                    DispatchQueue.main.async {
+                        isCreating = false
+                        let newEmployee = Employee(
+                            name: fullName,
+                            role: selectedRole,
+                            hireDate: Date(),
+                            Email: email
+                        )
+                        onAdd(newEmployee)
+                        dismiss()
+                    }
+                }
             }
-
-            guard let uid = result?.user.uid else { return }
-
-            // Save to Firestore
-            Firestore.firestore().collection("users").document(uid).setData([
-                "name": fullName,
-                "email": email,
-                "phone": phone,
-                "role": selectedRole,
-                "firstLogin": true
-            ])
-
-            // Sign out of secondary app — owner session untouched
-            try? secondaryAuth.signOut()
-
-            DispatchQueue.main.async {
-                let newEmployee = Employee(
-                    name: fullName,
-                    role: selectedRole,
-                    hireDate: Date(),
-                    Email: email
-                )
-                onAdd(newEmployee)
-                dismiss()
-            }
-        }
     }
 }

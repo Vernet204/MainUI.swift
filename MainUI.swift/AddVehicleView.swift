@@ -14,11 +14,10 @@ struct AddVehicleView: View {
     @State private var unitNumber = ""
     @State private var plate = ""
     @State private var status = "Active"
-
-    // ✅ Driver assignment
     @State private var drivers: [DriverOption] = []
     @State private var selectedDriverID = ""
     @State private var selectedDriverName = ""
+    @State private var errorMessage = ""  // ✅ was missing
 
     var onAdd: (Vehicle) -> Void
 
@@ -26,7 +25,6 @@ struct AddVehicleView: View {
         NavigationStack {
             Form {
 
-                // VEHICLE INFO
                 Section("Vehicle Info") {
                     TextField("Unit Number", text: $unitNumber)
                     TextField("Plate", text: $plate)
@@ -37,7 +35,6 @@ struct AddVehicleView: View {
                     }
                 }
 
-                // ASSIGN TO DRIVER
                 Section("Assign to Driver") {
                     if drivers.isEmpty {
                         Text("No drivers available.")
@@ -50,6 +47,11 @@ struct AddVehicleView: View {
                             }
                         }
                         .pickerStyle(.menu)
+                        .onChange(of: selectedDriverID) { id in
+                            selectedDriverName = drivers.first(where: {
+                                $0.id == id
+                            })?.name ?? ""
+                        }
 
                         if !selectedDriverID.isEmpty {
                             HStack {
@@ -60,6 +62,15 @@ struct AddVehicleView: View {
                                     .foregroundColor(.green)
                             }
                         }
+                    }
+                }
+
+                // ✅ Error message display
+                if !errorMessage.isEmpty {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
                     }
                 }
             }
@@ -77,7 +88,6 @@ struct AddVehicleView: View {
         }
     }
 
-    // MARK: - Fetch Drivers
     func fetchDrivers() {
         Firestore.firestore()
             .collection("users")
@@ -95,49 +105,67 @@ struct AddVehicleView: View {
             }
     }
 
-    // MARK: - Save Vehicle
     func saveVehicle() {
-        let db = Firestore.firestore()
+        errorMessage = ""
 
-        // ✅ Find selected driver name for display
-        if let driver = drivers.first(where: { $0.id == selectedDriverID }) {
-            selectedDriverName = driver.name
-        }
+        Firestore.firestore()
+            .collection("vehicles")
+            .getDocuments { snapshot, error in
+                guard let docs = snapshot?.documents else { return }
 
-        // ✅ Step 1 — Save vehicle to Firestore
-        let vehicleRef = db.collection("vehicles").document()
-        vehicleRef.setData([
-            "unitNumber": unitNumber,
-            "plate": plate,
-            "status": status,
-            "assignedDriverID": selectedDriverID,
-            "assignedDriverName": selectedDriverName,
-            "createdAt": Timestamp()
-        ])
+                let existingUnits = docs.compactMap { $0.data()["unitNumber"] as? String }
+                let existingPlates = docs.compactMap { $0.data()["plate"] as? String }
 
-        // ✅ Step 2 — If a driver was selected, update their user document
-        if !selectedDriverID.isEmpty {
-            db.collection("users").document(selectedDriverID).updateData([
-                "vehicleUnit": unitNumber,
-                "vehiclePlate": plate,
-                "vehicleID": vehicleRef.documentID
-            ]) { error in
-                if let error = error {
-                    print("Error assigning vehicle to driver: \(error.localizedDescription)")
-                } else {
-                    print("Vehicle assigned to driver successfully")
+                if existingUnits.contains(where: {
+                    $0.lowercased() == unitNumber.lowercased().trimmingCharacters(in: .whitespaces)
+                }) {
+                    DispatchQueue.main.async {
+                        errorMessage = "A vehicle with unit number \(unitNumber) already exists."
+                    }
+                    return
+                }
+
+                if existingPlates.contains(where: {
+                    $0.lowercased() == plate.lowercased().trimmingCharacters(in: .whitespaces)
+                }) {
+                    DispatchQueue.main.async {
+                        errorMessage = "A vehicle with plate \(plate) already exists."
+                    }
+                    return
+                }
+
+                let db = Firestore.firestore()
+                let vehicleRef = db.collection("vehicles").document()
+
+                vehicleRef.setData([
+                    "unitNumber": unitNumber.trimmingCharacters(in: .whitespaces),
+                    "plate": plate.uppercased().trimmingCharacters(in: .whitespaces),
+                    "status": status,
+                    "assignedDriverID": selectedDriverID,
+                    "assignedDriverName": selectedDriverName,
+                    "createdAt": Timestamp()
+                ])
+
+                if !selectedDriverID.isEmpty {
+                    db.collection("users").document(selectedDriverID).updateData([
+                        "vehicleUnit": unitNumber,
+                        "vehiclePlate": plate,
+                        "vehicleID": vehicleRef.documentID
+                    ])
+                }
+
+                DispatchQueue.main.async {
+                    let newVehicle = Vehicle(
+                        unitNumber: unitNumber,
+                        plate: plate,
+                        status: status,
+                        assignedDriverID: selectedDriverID,
+                        assignedDriverName: selectedDriverName
+                    )
+                    onAdd(newVehicle)
+                    dismiss()
                 }
             }
-        }
-
-        // ✅ Step 3 — Update local state and dismiss
-        let newVehicle = Vehicle(
-            unitNumber: unitNumber,
-            plate: plate,
-            status: status
-        )
-        onAdd(newVehicle)
-        dismiss()
     }
 }
 
@@ -146,4 +174,3 @@ struct DriverOption: Identifiable {
     let id: String
     let name: String
 }
-

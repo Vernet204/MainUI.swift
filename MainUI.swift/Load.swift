@@ -7,9 +7,9 @@
 
 
 import SwiftUI
-
 import Foundation
 
+// MARK: - Load (local model for AppState)
 struct Load: Identifiable {
     let id = UUID()
     var loadID: String
@@ -20,38 +20,22 @@ struct Load: Identifiable {
     var status: String
 }
 
-
-struct LoadRowView: View {
-    let load: Load
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-
-            HStack {
-                Text(load.loadID)
-                    .font(.headline)
-
-                Spacer()
-
-                StatusBadge(status: load.status)
-            }
-
-            Text("\(load.pickup) → \(load.delivery)")
-                .font(.subheadline)
-
-            HStack {
-                Text("Weight: \(load.weight)")
-                    .foregroundColor(.gray)
-                Spacer()
-                Text("Rate: \(load.rate)")
-                    .foregroundColor(.green)
-            }
-            .font(.caption)
-        }
-        .padding(.vertical, 6)
-    }
+// MARK: - LoadInfo (Firestore model with proper Date types)
+struct LoadInfo: Identifiable {
+    let id: String
+    var loadID: String
+    var pickupLocation: String
+    var deliveryLocation: String
+    var pickupDateTime: Date
+    var deliveryDateTime: Date
+    var status: String
+    var commodity: String
+    var rate: String
+    var weight: String
+    var assignedDriver: String = ""  // ✅ add this
 }
 
+// MARK: - StatusBadge
 struct StatusBadge: View {
     let status: String
 
@@ -69,19 +53,10 @@ struct StatusBadge: View {
     private var color: Color {
         switch status {
         case "Unassigned": return .orange
-        case "Assigned": return .blue
+        case "Assigned":   return .blue
         case "In Transit": return .purple
-        case "Delivered": return .green
-        default: return .gray
+        case "Delivered":  return .green
+        default:           return .gray
         }
     }
 }
-
-#Preview {
-    NavigationStack {
-        LoadBoardView()
-    }
-    .environmentObject(AppState())
-}
-
-

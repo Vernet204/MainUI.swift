@@ -5,7 +5,6 @@ struct ViewReport: View {
 
     @EnvironmentObject private var appState: AppState
     @State private var filterType: String = "All"
-    @State private var expandedReportID: UUID? = nil  // ✅ tracks which row is expanded
 
     private let filters = ["All", "Repair", "Accident", "Inspection"]
 
@@ -29,120 +28,32 @@ struct ViewReport: View {
                     )
                 } else {
                     ForEach(filteredReports) { report in
+                        VStack(alignment: .leading, spacing: 6) {
 
-                        // ✅ Tap to expand/collapse
-                        Button {
-                            withAnimation {
-                                if expandedReportID == report.id {
-                                    expandedReportID = nil  // collapse if already open
-                                } else {
-                                    expandedReportID = report.id  // expand this one
-                                }
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-
-                                // SUMMARY ROW — always visible
-                                HStack {
-                                    Text(report.reportNumber)
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    Text(report.reportType)
-                                        .font(.caption)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(typeColor(report.reportType).opacity(0.15))
-                                        .foregroundColor(typeColor(report.reportType))
-                                        .clipShape(Capsule())
-
-                                    // Chevron indicator
-                                    Image(systemName: expandedReportID == report.id
-                                          ? "chevron.up" : "chevron.down")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-
-                                Text("Vehicle: \(report.vehicleNumber)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.primary)
-
-                                Text("Driver: \(report.driverName)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.primary)
-
-                                Text(report.date.formatted(date: .abbreviated, time: .shortened))
+                            HStack {
+                                Text(report.reportNumber)
+                                    .font(.headline)
+                                Spacer()
+                                Text(report.reportType)
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
-
-                                // EXPANDED DETAIL — only shows when tapped
-                                if expandedReportID == report.id {
-                                    Divider()
-                                        .padding(.vertical, 4)
-
-                                    // Common fields
-                                    Group {
-                                        DetailRow(label: "Report #", value: report.reportNumber)
-                                        DetailRow(label: "Type", value: report.reportType)
-                                        DetailRow(
-                                            label: "Date & Time",
-                                            value: report.date.formatted(date: .long, time: .shortened)
-                                        )
-                                        DetailRow(label: "Vehicle Unit #", value: report.vehicleNumber)
-                                        DetailRow(label: "Driver Name", value: report.driverName)
-                                    }
-
-                                    // Repair-specific fields
-                                    if report.reportType.lowercased() == "repair" {
-                                        Divider()
-                                            .padding(.vertical, 4)
-                                        Text("Repair Details")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.orange)
-
-                                        DetailRow(label: "Severity", value: report.severity)
-                                        DetailRow(label: "Location", value: report.location)
-                                        DetailRow(label: "Issue Type", value: report.issueType)
-                                        DetailRow(label: "Trailer ID", value: report.trailerID)
-                                        DetailRow(label: "Status", value: report.status)
-                                        DetailRow(label: "Issue Description", value: report.issueDescription)
-                                    }
-
-                                    // Accident-specific fields
-                                    if report.reportType.lowercased() == "accident" {
-                                        Divider()
-                                            .padding(.vertical, 4)
-                                        Text("Accident Details")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.red)
-
-                                        DetailRow(label: "Severity", value: report.severity)
-                                        DetailRow(label: "Location", value: report.location)
-                                        DetailRow(label: "Trailer ID", value: report.trailerID)
-                                        DetailRow(label: "Issue Description", value: report.issueDescription)
-                                    }
-
-                                    // Inspection-specific fields
-                                    if report.reportType.lowercased() == "inspection" {
-                                        Divider()
-                                            .padding(.vertical, 4)
-                                        Text("Inspection Details")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.green)
-
-                                        DetailRow(label: "Truck ID", value: report.vehicleNumber)
-                                        DetailRow(label: "Trailer ID", value: report.trailerID)
-                                        DetailRow(label: "Odometer", value: report.odometer)
-                                        DetailRow(label: "Defects Found", value: report.defectsFound ? "Yes" : "No")
-                                        DetailRow(label: "Defect Description", value: report.issueDescription)
-                                    }
-                                }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(typeColor(report.reportType).opacity(0.15))
+                                    .foregroundColor(typeColor(report.reportType))
+                                    .clipShape(Capsule())
                             }
-                            .padding(.vertical, 4)
+
+                            Text("Vehicle: \(report.vehicleNumber)")
+                                .font(.subheadline)
+
+                            Text("Driver: \(report.driverName)")
+                                .font(.subheadline)
+
+                            Text(report.date.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
+                        .padding(.vertical, 4)
                     }
                     .onDelete { indexSet in
                         let ids = filteredReports.map { $0.id }
@@ -156,13 +67,61 @@ struct ViewReport: View {
         .onAppear { fetchReports() }
     }
 
-    // MARK: - Filter Logic
+    // MARK: - Deduplicated + Filtered Reports
     private var filteredReports: [ReportItem] {
-        let sorted = appState.reports.sorted { $0.date > $1.date }
-        if filterType == "All" { return sorted }
+        let sorted = deduplicatedReports.sorted { $0.date > $1.date }
+
+        if filterType == "All" {
+            return sorted
+        }
+
         return sorted.filter {
             $0.reportType.lowercased() == filterType.lowercased()
         }
+    }
+
+    // MARK: - Deduplication Logic
+    private var deduplicatedReports: [ReportItem] {
+        var seen = Set<String>()
+        var unique: [ReportItem] = []
+
+        for report in appState.reports {
+
+            // ✅ Build a unique key per report type
+            let key: String
+
+            switch report.reportType.lowercased() {
+
+            case "inspection":
+                // Unique by: driver + vehicle + date (day only)
+                let dayString = Calendar.current.startOfDay(for: report.date)
+                    .formatted(.iso8601.year().month().day())
+                key = "inspection_\(report.driverName.lowercased())_\(report.vehicleNumber.lowercased())_\(dayString)"
+
+            case "repair":
+                // Unique by: driver + vehicle + issue type + date (day only)
+                let dayString = Calendar.current.startOfDay(for: report.date)
+                    .formatted(.iso8601.year().month().day())
+                key = "repair_\(report.driverName.lowercased())_\(report.vehicleNumber.lowercased())_\(report.issueType.lowercased())_\(dayString)"
+
+            case "accident":
+                // Accidents are unique by driver + vehicle + full timestamp
+                // since multiple accidents in a day are possible
+                key = "accident_\(report.driverName.lowercased())_\(report.vehicleNumber.lowercased())_\(report.date.timeIntervalSince1970)"
+
+            default:
+                // Fallback — unique by report number
+                key = report.reportNumber
+            }
+
+            // ✅ Only add if we haven't seen this key before
+            if !seen.contains(key) {
+                seen.insert(key)
+                unique.append(report)
+            }
+        }
+
+        return unique
     }
 
     // MARK: - Color by type
@@ -184,6 +143,7 @@ struct ViewReport: View {
                     print("Error fetching reports: \(error.localizedDescription)")
                     return
                 }
+
                 guard let documents = snapshot?.documents else { return }
 
                 DispatchQueue.main.async {
@@ -207,7 +167,8 @@ struct ViewReport: View {
                             issueType: data["issueType"] as? String ?? "—",
                             trailerID: data["trailerID"] as? String ?? "—",
                             status: data["status"] as? String ?? "—",
-                            issueDescription: data["issueDescription"] as? String ?? data["defectDescription"] as? String ?? "—",
+                            issueDescription: data["issueDescription"] as? String
+                                ?? data["defectDescription"] as? String ?? "—",
                             odometer: data["odometer"] as? String ?? "—",
                             defectsFound: data["defectsFound"] as? Bool ?? false
                         )
@@ -223,4 +184,3 @@ struct ViewReport: View {
     }
     .environmentObject(AppState())
 }
-
