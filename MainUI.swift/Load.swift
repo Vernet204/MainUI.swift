@@ -54,6 +54,8 @@ struct StatusBadge: View {
         switch status {
         case "Unassigned": return .orange
         case "Assigned":   return .blue
+        case "Accepted":   return .green
+        case "Declined":   return .red
         case "In Transit": return .purple
         case "Delivered":  return .green
         default:           return .gray

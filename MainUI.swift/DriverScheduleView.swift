@@ -275,12 +275,14 @@ struct DriverScheduleView: View {
         Calendar.current.isDate(date, inSameDayAs: selectedDate)
     }
 
+    // Update schedulePriority
     func schedulePriority(_ status: String) -> Int {
         switch status {
         case "In Transit": return 0
-        case "Assigned":   return 1
-        case "Available":  return 2
-        default:           return 3
+        case "Accepted":   return 1  // ✅ added
+        case "Assigned":   return 2
+        case "Available":  return 3
+        default:           return 4
         }
     }
 
@@ -307,10 +309,13 @@ struct DriverScheduleView: View {
                     let vehicleUnit = d["vehicleUnit"] as? String ?? "Unassigned"
 
                     group.enter()
+                    
+                    
 
+                    // In fetchSchedules() — update the whereField to include all active statuses
                     db.collection("loads")
                         .whereField("assignedDriver", isEqualTo: name)
-                        .whereField("status", in: ["Assigned", "In Transit"])
+                        .whereField("status", in: ["Assigned", "Accepted", "In Transit"]) // ✅ added Accepted
                         .getDocuments { loadSnapshot, _ in
                             let loadDocs = loadSnapshot?.documents ?? []
 
@@ -335,9 +340,12 @@ struct DriverScheduleView: View {
                                 return l
                             }
 
+                            // Update overallStatus logic to handle Accepted
                             let overallStatus: String
                             if markedLoads.contains(where: { $0.status == "In Transit" }) {
                                 overallStatus = "In Transit"
+                            } else if markedLoads.contains(where: { $0.status == "Accepted" }) {
+                                overallStatus = "Accepted"   // ✅ added
                             } else if !markedLoads.isEmpty {
                                 overallStatus = "Assigned"
                             } else {
@@ -624,10 +632,12 @@ struct DriverScheduleCard: View {
         return String(f.string(from: date).prefix(1))
     }
 
+    // Update statusColor in DriverScheduleCard
     func statusColor(_ status: String) -> Color {
         switch status {
         case "Available":  return .green
         case "Assigned":   return .blue
+        case "Accepted":   return .green  // ✅ added
         case "In Transit": return .orange
         default:           return .gray
         }
@@ -636,11 +646,12 @@ struct DriverScheduleCard: View {
     func loadColor(_ status: String) -> Color {
         switch status {
         case "Assigned":   return .blue
+        case "Accepted":   return .green
         case "In Transit": return .purple
+        case "Declined":   return .red
         default:           return .gray
         }
-    }
-}
+    }}
 
 // MARK: - Load Window Filter Sheet
 struct LoadWindowFilterView: View {
@@ -715,3 +726,9 @@ struct ScheduledLoad: Identifiable {
     var status: String
     var hasConflict: Bool
 }
+
+
+
+
+
+

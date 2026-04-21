@@ -22,7 +22,11 @@ struct CreateLoadView: View {
     @State private var specialInstructions = ""
     @State private var errorMessage = ""
     @State private var isCreating = false
-
+    // Add to state variables:
+    @State private var clients: [ClientOption] = []
+    @State private var selectedClient: ClientOption? = nil
+    @State private var showAddClient = false
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -47,7 +51,52 @@ struct CreateLoadView: View {
                                 .textFieldStyle(.roundedBorder)
                         }
                     }
+                    
+                    FormCard(title: "🏢 Client & Broker") {
+                        VStack(spacing: 12) {
+                            Picker("Select Client", selection: $selectedClient) {
+                                Text("Select a client...").tag(Optional<ClientOption>(nil))
+                                ForEach(clients) { client in
+                                    Text("\(client.companyName) — \(client.brokerName)")
+                                        .tag(Optional(client))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
+                            if let client = selectedClient {
+                                HStack {
+                                    Image(systemName: "building.2.fill")
+                                        .foregroundColor(.blue)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(client.companyName)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Text("Broker: \(client.brokerName)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+
+                            // ✅ Add new client button
+                            Button {
+                                showAddClient = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add New Client")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.green.opacity(0.12))
+                                .foregroundColor(.green)
+                                .cornerRadius(10)
+                            }
+                        }
+                    }
                     // PICKUP
                     FormCard(title: "📍 Pickup") {
                         VStack(spacing: 12) {
@@ -139,10 +188,24 @@ struct CreateLoadView: View {
                 .padding()
             }
             .navigationTitle("Create Load")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .disabled(isCreating)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Close") { dismiss() }
+                                    .disabled(isCreating)
+                            }
+                        }
+                        .onAppear { fetchClients() }
+                        .sheet(isPresented: $showAddClient, onDismiss: {
+                // ✅ Refresh client list after adding
+                fetchClients()
+            }) {
+                QuickAddClientView { newClient in
+                    // ✅ Auto-select the newly added client
+                    selectedClient = ClientOption(
+                        id: newClient.id,
+                        companyName: newClient.companyName,
+                        brokerName: newClient.brokerName
+                    )
                 }
             }
         }
@@ -158,6 +221,25 @@ struct CreateLoadView: View {
         return "\(hours)h \(minutes)m"
     }
 
+    
+    func fetchClients() {
+        Firestore.firestore()
+            .collection("clients")
+            .getDocuments { snapshot, _ in
+                guard let docs = snapshot?.documents else { return }
+                DispatchQueue.main.async {
+                    clients = docs.map { doc in
+                        let d = doc.data()
+                        return ClientOption(
+                            id: doc.documentID,
+                            companyName: d["companyName"] as? String ?? "",
+                            brokerName: d["brokerName"] as? String ?? ""
+                        )
+                    }.filter { !$0.companyName.isEmpty }
+                }
+            }
+    }
+    
     // MARK: - Create Load
     func createLoad() {
         guard !pickup.isEmpty else { errorMessage = "Enter pickup location."; return }
@@ -201,6 +283,10 @@ struct CreateLoadView: View {
                     "assignedDriver": "",
                     "assignedDriverID": "",
                     "assignedVehicle": "",
+                    // ✅ Client & Broker
+                    "clientID": selectedClient?.id ?? "",
+                    "clientName": selectedClient?.companyName ?? "",
+                    "brokerName": selectedClient?.brokerName ?? "",
                     "createdAt": Timestamp()
                 ]) { error in
                     DispatchQueue.main.async {
@@ -236,6 +322,137 @@ struct FormCard<Content: View>: View {
         .background(Color(.systemGray6))
         .cornerRadius(14)
         .padding(.horizontal)
+    }
+    
+}
+// Add model at bottom of file:
+struct ClientOption: Identifiable, Hashable {
+    let id: String
+    var companyName: String
+    var brokerName: String
+}
+
+// MARK: - Quick Add Client View
+struct QuickAddClientView: View {
+
+    @Environment(\.dismiss) var dismiss
+    var onAdd: (ClientOption) -> Void
+
+    @State private var companyName = ""
+    @State private var brokerName = ""
+    @State private var phone = ""
+    @State private var email = ""
+    @State private var errorMessage = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Company Info") {
+                    TextField("Company Name", text: $companyName)
+                    TextField("Broker Name", text: $brokerName)
+                }
+
+                Section("Contact (Optional)") {
+                    TextField("Phone", text: $phone)
+                        .keyboardType(.phonePad)
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                }
+
+                if !errorMessage.isEmpty {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+
+                Section {
+                    Button {
+                        saveClient()
+                    } label: {
+                        if isSaving {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Client").fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+            .navigationTitle("New Client")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    func saveClient() {
+        guard !companyName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            errorMessage = "Company name is required."
+            return
+        }
+        guard !brokerName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            errorMessage = "Broker name is required."
+            return
+        }
+
+        isSaving = true
+        errorMessage = ""
+
+        // ✅ Duplicate check
+        Firestore.firestore()
+            .collection("clients")
+            .whereField("companyName", isEqualTo: companyName)
+            .getDocuments { snapshot, _ in
+                if let count = snapshot?.documents.count, count > 0 {
+                    DispatchQueue.main.async {
+                        errorMessage = "A client named '\(companyName)' already exists."
+                        isSaving = false
+                    }
+                    return
+                }
+
+                // ✅ Save to Firestore
+                var ref: DocumentReference?
+                ref = Firestore.firestore()
+                    .collection("clients")
+                    .addDocument(data: [
+                        "companyName": companyName.trimmingCharacters(in: .whitespaces),
+                        "brokerName": brokerName.trimmingCharacters(in: .whitespaces),
+                        "phone": phone,
+                        "email": email,
+                        "createdAt": Timestamp()
+                    ]) { error in
+                        DispatchQueue.main.async {
+                            isSaving = false
+                            if let error = error {
+                                errorMessage = error.localizedDescription
+                            } else if let id = ref?.documentID {
+                                // ✅ Pass new client back to CreateLoadView
+                                onAdd(ClientOption(
+                                    id: id,
+                                    companyName: companyName,
+                                    brokerName: brokerName
+                                ))
+                                dismiss()
+                            }
+                        }
+                    }
+            }
     }
 }
 

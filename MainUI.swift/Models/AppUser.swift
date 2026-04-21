@@ -16,4 +16,5 @@ struct AppUser: Identifiable {
     var password: String
     var role: String
     var isFirstLogin: Bool
+    var vehicleUnit: String = ""  // ✅ add this
 }

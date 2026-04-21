@@ -8,7 +8,7 @@ import SwiftUI
 import FirebaseFirestore
 
 struct AssignLoadView: View {
-    // Add this to the top of AssignLoadView struct
+
     var preselectedDriver: ScheduleDriver? = nil
     @State private var loads: [ScheduleLoad] = []
     @State private var drivers: [ScheduleDriver] = []
@@ -35,14 +35,14 @@ struct AssignLoadView: View {
                 }
             }
 
-            Section("Unassigned Loads") {
+            Section("Unassigned / Declined Loads") {
                 if isLoading {
                     ProgressView("Loading loads...")
                 } else if loads.isEmpty {
                     ContentUnavailableView(
-                        "No Unassigned Loads",
+                        "No Loads Available",
                         systemImage: "shippingbox",
-                        description: Text("Create a load to get started.")
+                        description: Text("All loads are assigned.")
                     )
                 } else {
                     ForEach(loads) { load in
@@ -59,6 +59,19 @@ struct AssignLoadView: View {
                                         .font(.headline)
                                         .foregroundColor(.primary)
                                     Spacer()
+
+                                    // ✅ Show Declined badge if applicable
+                                    if load.status == "Declined" {
+                                        Text("Declined")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.red.opacity(0.15))
+                                            .foregroundColor(.red)
+                                            .clipShape(Capsule())
+                                    }
+
                                     if selectedLoad?.id == load.id {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundColor(.blue)
@@ -231,42 +244,12 @@ struct AssignLoadView: View {
                 Section("Summary") {
                     if let load = selectedLoad, let driver = selectedDriver {
                         VStack(alignment: .leading, spacing: 8) {
-                            SummaryRow(
-                                icon: "shippingbox.fill",
-                                color: .blue,
-                                label: "Load",
-                                value: load.loadID
-                            )
-                            SummaryRow(
-                                icon: "mappin.circle.fill",
-                                color: .red,
-                                label: "Pickup",
-                                value: "\(load.pickupLocation)\n\(load.pickupDateTime.formatted(date: .abbreviated, time: .shortened))"
-                            )
-                            SummaryRow(
-                                icon: "mappin.and.ellipse",
-                                color: .green,
-                                label: "Delivery",
-                                value: "\(load.deliveryLocation)\n\(load.deliveryDateTime.formatted(date: .abbreviated, time: .shortened))"
-                            )
-                            SummaryRow(
-                                icon: "person.fill",
-                                color: .purple,
-                                label: "Driver",
-                                value: driver.name
-                            )
-                            SummaryRow(
-                                icon: "truck.box.fill",
-                                color: .orange,
-                                label: "Vehicle",
-                                value: driver.vehicleUnit
-                            )
-                            SummaryRow(
-                                icon: "clock.fill",
-                                color: .teal,
-                                label: "Duration",
-                                value: load.duration
-                            )
+                            SummaryRow(icon: "shippingbox.fill", color: .blue, label: "Load", value: load.loadID)
+                            SummaryRow(icon: "mappin.circle.fill", color: .red, label: "Pickup", value: "\(load.pickupLocation)\n\(load.pickupDateTime.formatted(date: .abbreviated, time: .shortened))")
+                            SummaryRow(icon: "mappin.and.ellipse", color: .green, label: "Delivery", value: "\(load.deliveryLocation)\n\(load.deliveryDateTime.formatted(date: .abbreviated, time: .shortened))")
+                            SummaryRow(icon: "person.fill", color: .purple, label: "Driver", value: driver.name)
+                            SummaryRow(icon: "truck.box.fill", color: .orange, label: "Vehicle", value: driver.vehicleUnit)
+                            SummaryRow(icon: "clock.fill", color: .teal, label: "Duration", value: load.duration)
                         }
                         .padding(.vertical, 4)
                     }
@@ -306,7 +289,6 @@ struct AssignLoadView: View {
         .navigationTitle("Assign Load")
         .onAppear {
             startListening()
-            // ✅ Pre-select driver if coming from schedule view
             if let driver = preselectedDriver {
                 selectedDriver = driver
             }
@@ -345,14 +327,15 @@ struct AssignLoadView: View {
         }
     }
 
-    // MARK: - Real-time Listener for Loads
+    // MARK: - Real-time Listener
+    // ✅ Fetches both Unassigned AND Declined so dispatcher can reassign
     func startListening() {
         isLoading = true
         listener?.remove()
 
         listener = Firestore.firestore()
             .collection("loads")
-            .whereField("status", isEqualTo: "Unassigned")
+            .whereField("status", in: ["Unassigned", "Declined"])
             .addSnapshotListener { snapshot, error in
                 guard let docs = snapshot?.documents else { return }
                 DispatchQueue.main.async {
@@ -370,7 +353,8 @@ struct AssignLoadView: View {
                             commodity: d["commodity"] as? String ?? "",
                             specialInstructions: d["specialInstructions"] as? String ?? "",
                             rate: d["rate"] as? String ?? "",
-                            weight: d["weight"] as? String ?? ""
+                            weight: d["weight"] as? String ?? "",
+                            status: d["status"] as? String ?? "Unassigned"
                         )
                     }
                     .sorted { $0.pickupDateTime < $1.pickupDateTime }
@@ -399,9 +383,10 @@ struct AssignLoadView: View {
 
                     group.enter()
 
+                    // ✅ Include all active statuses
                     db.collection("loads")
                         .whereField("assignedDriver", isEqualTo: name)
-                        .whereField("status", in: ["Assigned", "In Transit"])
+                        .whereField("status", in: ["Assigned", "Accepted", "In Transit"])
                         .getDocuments { loadSnapshot, _ in
 
                             let activeDocs = loadSnapshot?.documents ?? []
@@ -426,15 +411,11 @@ struct AssignLoadView: View {
                                 }
                             }
 
-                            // ✅ Clean availability logic — only based on date overlap
                             let availabilityStatus: String
 
                             if activeDocs.isEmpty {
-                                // ✅ No active loads — always available
                                 availabilityStatus = "Available"
-
                             } else if let selectedLoad = self.selectedLoad {
-                                // ✅ Load selected — check if any active load overlaps
                                 let hasOverlap = activeDocs.contains { doc in
                                     let ld = doc.data()
                                     if let ep = (ld["pickupDateTime"] as? Timestamp)?.dateValue(),
@@ -448,15 +429,12 @@ struct AssignLoadView: View {
                                 if hasOverlap {
                                     availabilityStatus = "Unavailable"
                                 } else {
-                                    // ✅ Has loads but no overlap — available
                                     let isInTransit = activeDocs.contains {
                                         ($0.data()["status"] as? String) == "In Transit"
                                     }
                                     availabilityStatus = isInTransit ? "Available Soon" : "Available"
                                 }
-
                             } else {
-                                // ✅ No load selected yet — show general status
                                 let isInTransit = activeDocs.contains {
                                     ($0.data()["status"] as? String) == "In Transit"
                                 }
@@ -507,7 +485,7 @@ struct AssignLoadView: View {
         Firestore.firestore()
             .collection("loads")
             .whereField("assignedDriver", isEqualTo: driver.name)
-            .whereField("status", in: ["Assigned", "In Transit"])
+            .whereField("status", in: ["Assigned", "Accepted", "In Transit"])
             .getDocuments { snapshot, _ in
                 DispatchQueue.main.async {
                     isCheckingConflict = false
@@ -523,7 +501,6 @@ struct AssignLoadView: View {
                     let existingLoadID = d["loadID"] as? String ?? "Unknown"
 
                     if let ep = existingPickup, let ed = existingDelivery {
-                        // ✅ Only flag if dates actually overlap
                         let overlaps = load.pickupDateTime < ed &&
                                        load.deliveryDateTime > ep
                         if overlaps {
@@ -537,7 +514,7 @@ struct AssignLoadView: View {
                 } else {
                     let loadList = conflictingLoads.joined(separator: ", ")
                     DispatchQueue.main.async {
-                        conflictMessage = "\(driver.name) has overlapping load(s): \(loadList). The pickup or dropoff times conflict with load \(load.loadID). Assign anyway?"
+                        conflictMessage = "\(driver.name) has overlapping load(s): \(loadList). Assign anyway?"
                         showConflictWarning = true
                     }
                 }
@@ -549,21 +526,27 @@ struct AssignLoadView: View {
         guard let load = selectedLoad,
               let driver = selectedDriver else { return }
 
+        // ✅ Build update data as typed dict to avoid FieldValue type mismatch
+        let updateData: [String: Any] = [
+            "assignedDriver": driver.name,
+            "assignedDriverID": driver.id,
+            "assignedVehicle": driver.vehicleUnit,
+            "status": "Assigned",
+            "assignedAt": Timestamp(),
+            "declinedBy": ""
+            // ✅ Removed FieldValue.delete() — just clear the field with ""
+        ]
+
         Firestore.firestore()
             .collection("loads")
             .document(load.id)
-            .updateData([
-                "assignedDriver": driver.name,
-                "assignedDriverID": driver.id,
-                "assignedVehicle": driver.vehicleUnit,
-                "status": "Assigned",
-                "assignedAt": Timestamp()
-            ]) { _ in
+            .updateData(updateData) { _ in
                 DispatchQueue.main.async {
                     showConfirmation = true
                 }
             }
     }
+
 }
 
 // MARK: - Summary Row
@@ -603,6 +586,7 @@ struct ScheduleLoad: Identifiable {
     var specialInstructions: String
     var rate: String
     var weight: String
+    var status: String = "Unassigned"  // ✅ added
 
     var duration: String {
         let diff = deliveryDateTime.timeIntervalSince(pickupDateTime)

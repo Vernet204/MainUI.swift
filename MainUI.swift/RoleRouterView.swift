@@ -5,14 +5,13 @@
 //  Created by lounyveson vernet on 3/29/26.
 //
 
-
 import SwiftUI
 
 struct RoleRouterView: View {
     var role: String
 
     var body: some View {
-        // Use lowercased() so "Owner", "owner", "OWNER" all work
+        // ✅ Always lowercased to handle any capitalization from Firestore
         switch role.lowercased() {
         case "owner":
             OwnerDashboardView()
@@ -25,15 +24,14 @@ struct RoleRouterView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.orange)
-
-                Text("Role Not Found")
-                    .font(.title2)
+                Text("Access Denied")
+                    .font(.title)
                     .fontWeight(.bold)
-
-                Text("Contact your administrator.")
+                Text("Role '\(role)' is not recognized.\nContact your administrator.")
                     .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
             }
+            .padding()
         }
     }
 }
-

@@ -11,8 +11,7 @@ class AuthManager: ObservableObject {
     private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
-        listenToAuthState()
-        try? Auth.auth().signOut() // TEMPORARY - remove after confirming flow works
+        // ✅ Removed duplicate listenToAuthState() and temporary signOut()
         listenToAuthState()
     }
 
@@ -59,19 +58,24 @@ class AuthManager: ObservableObject {
 
                     print("📄 Raw Firestore data: \(data)")
 
-                    let name = data["name"] as? String ?? ""
-                    let role = data["role"] as? String ?? ""
+                    let name        = data["name"] as? String ?? ""
+                    let role        = data["role"] as? String ?? ""
+                    let email       = data["email"] as? String ?? ""
+                    let firstLogin  = data["firstLogin"] as? Bool ?? false
+                    let vehicleUnit = data["vehicleUnit"] as? String ?? "" // ✅ added
 
                     print("👤 Name: \(name)")
                     print("👤 Role: \(role)")
+                    print("🚛 Vehicle Unit: \(vehicleUnit)") // ✅ added
 
                     self.appUser = AppUser(
                         id: UUID(),
                         name: name,
-                        email: data["email"] as? String ?? "",
+                        email: email,
                         password: "",
                         role: role,
-                        isFirstLogin: data["firstLogin"] as? Bool ?? false
+                        isFirstLogin: firstLogin,
+                        vehicleUnit: vehicleUnit // ✅ added
                     )
 
                     print("✅ appUser set: \(self.appUser?.name ?? "nil")")
@@ -105,4 +109,3 @@ class AuthManager: ObservableObject {
         }
     }
 }
-

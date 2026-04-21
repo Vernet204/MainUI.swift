@@ -2,17 +2,17 @@ import SwiftUI
 import PhotosUI
 import FirebaseStorage
 import FirebaseFirestore
-import FirebaseAuth
 import CoreLocation
 
 struct AccidentReportView: View {
 
     @Environment(\.dismiss) var dismiss
 
-    // Driver & Vehicle Info
-    @State private var driverName = ""
-    @State private var truckID = ""
-    @State private var trailerID = ""
+    // ✅ Picker selections
+    @State private var selectedDriver: ReportDriver? = nil
+    @State private var selectedVehicle: ReportVehicle? = nil
+    @State private var drivers: [ReportDriver] = []
+    @State private var vehicles: [ReportVehicle] = []
 
     // Incident Details
     @State private var accidentDescription = ""
@@ -20,7 +20,7 @@ struct AccidentReportView: View {
     @State private var injuries = false
     @State private var accidentDate = Date()
 
-    // ✅ Auto GPS location
+    // GPS
     @State private var locationString = "Fetching location..."
     @StateObject private var locationManager = LocationManager()
 
@@ -31,7 +31,7 @@ struct AccidentReportView: View {
     // State
     @State private var isSubmitting = false
     @State private var showConfirmation = false
-    @State private var errorMessage = ""
+    @State private var errorMessage = ""  // ✅ Only one declaration
 
     let severityLevels = ["Minor", "Moderate", "Major"]
 
@@ -40,39 +40,45 @@ struct AccidentReportView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
-                    // DRIVER & VEHICLE INFO
-                    SectionCard(title: "👤 Driver & Vehicle Info") {
-                        VStack(spacing: 12) {
-                            TextField("Driver Name", text: $driverName)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Truck ID", text: $truckID)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Trailer ID", text: $trailerID)
-                                .textFieldStyle(.roundedBorder)
+                    // DRIVER & VEHICLE
+                    SectionCard(title: "👤 Driver & Vehicle") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Picker("Select Driver", selection: $selectedDriver) {
+                                Text("Select a driver...").tag(Optional<ReportDriver>(nil))
+                                ForEach(drivers) { driver in
+                                    Text(driver.name).tag(Optional(driver))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Picker("Select Truck", selection: $selectedVehicle) {
+                                Text("Select a vehicle...").tag(Optional<ReportVehicle>(nil))
+                                ForEach(vehicles) { vehicle in
+                                    Text("\(vehicle.unitNumber) — \(vehicle.plate)").tag(Optional(vehicle))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
 
-                    // INCIDENT DETAILS — auto stamped
+                    // INCIDENT DETAILS
                     SectionCard(title: "🚨 Incident Details") {
                         VStack(alignment: .leading, spacing: 10) {
-
-                            // ✅ Auto date & time stamp
                             HStack {
                                 Image(systemName: "clock.fill")
                                     .foregroundColor(.blue)
                                 Text("Date & Time: \(accidentDate.formatted(date: .abbreviated, time: .shortened))")
                                     .font(.subheadline)
                             }
-
-                            // ✅ Auto GPS location stamp
                             HStack(alignment: .top) {
                                 Image(systemName: "location.fill")
                                     .foregroundColor(.green)
                                 Text("Location: \(locationString)")
                                     .font(.subheadline)
                                     .foregroundColor(
-                                        locationString == "Fetching location..."
-                                        ? .gray : .primary
+                                        locationString == "Fetching location..." ? .gray : .primary
                                     )
                             }
                         }
@@ -133,7 +139,7 @@ struct AccidentReportView: View {
                             )
                     }
 
-                    // ERROR MESSAGE
+                    // ERROR
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .foregroundColor(.red)
@@ -141,12 +147,14 @@ struct AccidentReportView: View {
                             .padding(.horizontal)
                     }
 
-                    // SUBMIT BUTTON
+                    // SUBMIT
                     Button(action: submitReport) {
                         if isSubmitting {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
                                 .padding()
+                                .background(Color.red.opacity(0.6))
+                                .cornerRadius(12)
                         } else {
                             Text("SUBMIT REPORT")
                                 .font(.headline)
@@ -163,13 +171,11 @@ struct AccidentReportView: View {
                 .padding()
             }
             .navigationTitle("Accident Report")
-
-            // ✅ Start fetching GPS when view appears
             .onAppear {
                 locationManager.requestLocation()
+                fetchDrivers()
+                fetchVehicles()
             }
-
-            // ✅ Update location string when GPS comes in
             .onChange(of: locationManager.locationString) { newLocation in
                 locationString = newLocation
             }
@@ -181,7 +187,44 @@ struct AccidentReportView: View {
         }
     }
 
-    // MARK: - Load Selected Images
+    // MARK: - Fetch Drivers
+    func fetchDrivers() {
+        Firestore.firestore()
+            .collection("users")
+            .whereField("role", isEqualTo: "Driver")
+            .getDocuments { snapshot, _ in
+                guard let docs = snapshot?.documents else { return }
+                DispatchQueue.main.async {
+                    drivers = docs.map {
+                        ReportDriver(
+                            id: $0.documentID,
+                            name: $0.data()["name"] as? String ?? ""
+                        )
+                    }.filter { !$0.name.isEmpty }
+                }
+            }
+    }
+
+    // MARK: - Fetch Vehicles
+    func fetchVehicles() {
+        Firestore.firestore()
+            .collection("vehicles")
+            .getDocuments { snapshot, _ in
+                guard let docs = snapshot?.documents else { return }
+                DispatchQueue.main.async {
+                    vehicles = docs.map { doc in
+                        let d = doc.data()
+                        return ReportVehicle(
+                            id: doc.documentID,
+                            unitNumber: d["unitNumber"] as? String ?? "",
+                            plate: d["plate"] as? String ?? ""
+                        )
+                    }.filter { !$0.unitNumber.isEmpty }
+                }
+            }
+    }
+
+    // MARK: - Load Images
     func loadImages(from items: [PhotosPickerItem]) {
         uiImages.removeAll()
         for item in items {
@@ -198,73 +241,70 @@ struct AccidentReportView: View {
 
     // MARK: - Submit Report
     func submitReport() {
-        guard !driverName.isEmpty else { errorMessage = "Enter driver name."; return }
-        guard !truckID.isEmpty else { errorMessage = "Enter truck ID."; return }
-
-        isSubmitting = true
-        errorMessage = ""
-
-        if uiImages.isEmpty {
-            saveReportToFirestore(imageURLs: [])
-        } else {
-            uploadImages { imageURLs in
-                saveReportToFirestore(imageURLs: imageURLs)
-            }
+        guard let driver = selectedDriver else {
+            errorMessage = "Please select a driver."
+            return
         }
-    }
+        guard let vehicle = selectedVehicle else {
+            errorMessage = "Please select a vehicle."
+            return
+        }
+        errorMessage = ""
+        isSubmitting = true
 
-    // MARK: - Save to Firestore
-    func saveReportToFirestore(imageURLs: [String]) {
-        Firestore.firestore().collection("reports").addDocument(data: [
+        let reportNumber = "ACC-\(Int.random(in: 1000...9999))"
+
+        let reportData: [String: Any] = [
+            "reportNumber": reportNumber,
             "type": "accident",
-            "driverName": driverName,
-            "truckID": truckID,
-            "trailerID": trailerID,
+            "driverName": driver.name,
+            "truckID": vehicle.unitNumber,
+            "vehicleNumber": vehicle.unitNumber,
             "severity": severity,
             "injuries": injuries,
-            "location": locationString,        // ✅ saves GPS location
-            "issueDescription": accidentDescription,
-            "accidentDate": Timestamp(date: accidentDate),  // ✅ saves timestamp
-            "imageURLs": imageURLs,
-            "status": "submitted",
-            "dateReported": Timestamp()
-        ]) { error in
-            DispatchQueue.main.async {
-                isSubmitting = false
-                if let error = error {
-                    errorMessage = "Error: \(error.localizedDescription)"
-                } else {
+            "accidentDescription": accidentDescription,
+            "location": locationString,
+            "accidentDate": Timestamp(date: accidentDate),
+            "dateReported": Timestamp(),
+            "status": "Open"
+        ]
+
+        Firestore.firestore()
+            .collection("reports")
+            .addDocument(data: reportData) { error in
+                DispatchQueue.main.async {
+                    isSubmitting = false
+                    if let error = error {
+                        errorMessage = "Error: \(error.localizedDescription)"
+                        return
+                    }
+                    // ✅ Moderate/Major → vehicle In Maintenance
+                    if self.severity == "Moderate" || self.severity == "Major" {
+                        Firestore.firestore()
+                            .collection("vehicles")
+                            .document(vehicle.id)
+                            .updateData([
+                                "status": "In Maintenance",
+                                "inspectionStatus": "Accident Reported"
+                            ])
+                    }
                     showConfirmation = true
                 }
             }
-        }
-    }
 
-    // MARK: - Upload Images
-    func uploadImages(completion: @escaping ([String]) -> Void) {
-        let storageRef = Storage.storage().reference()
-        var uploadedURLs: [String] = []
-        let group = DispatchGroup()
-
-        for image in uiImages {
-            guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }
-            group.enter()
-            let imageRef = storageRef.child("accidents/\(UUID().uuidString).jpg")
-            imageRef.putData(imageData, metadata: nil) { _, error in
-                if let error = error {
-                    print("Upload failed: \(error.localizedDescription)")
-                    group.leave()
-                    return
-                }
-                imageRef.downloadURL { url, error in
-                    if let url = url { uploadedURLs.append(url.absoluteString) }
-                    group.leave()
+        // ✅ Upload photos
+        if !uiImages.isEmpty {
+            let storageRef = Storage.storage().reference()
+            for image in uiImages {
+                if let imageData = image.jpegData(compressionQuality: 0.8) {
+                    let imageRef = storageRef.child("accidents/\(UUID().uuidString).jpg")
+                    imageRef.putData(imageData, metadata: nil) { _, error in
+                        if let error = error {
+                            print("Upload failed:", error.localizedDescription)
+                        }
+                    }
                 }
             }
-        }
-
-        group.notify(queue: .main) {
-            completion(uploadedURLs)
         }
     }
 }
@@ -286,17 +326,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.requestLocation()
     }
 
-    // ✅ Converts GPS coordinates to readable address
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.first else { return }
-
-        let geocoder = CLGeocoder()
-        geocoder.reverseGeocodeLocation(location) { placemarks, error in
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
             if let placemark = placemarks?.first {
                 let street = placemark.thoroughfare ?? ""
                 let city = placemark.locality ?? ""
                 let state = placemark.administrativeArea ?? ""
-
                 DispatchQueue.main.async {
                     self.locationString = "\(street), \(city), \(state)"
                 }
@@ -308,7 +344,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         DispatchQueue.main.async {
             self.locationString = "Location unavailable"
         }
-        print("Location error: \(error.localizedDescription)")
     }
 }
 

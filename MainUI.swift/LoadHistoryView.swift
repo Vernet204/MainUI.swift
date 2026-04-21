@@ -155,6 +155,7 @@ struct LoadHistoryView: View {
         isLoading = true
         listener?.remove()
 
+        // In startListening() — already filters for Delivered only ✅
         listener = Firestore.firestore()
             .collection("loads")
             .whereField("status", isEqualTo: "Delivered")

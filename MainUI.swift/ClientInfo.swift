@@ -7,82 +7,207 @@
 import SwiftUI
 import FirebaseFirestore
 
-struct ClientInfo: Identifiable {
-    let id: String
-    var companyName: String
-    var brokerName: String
-    var phone: String
-    var email: String
-    var address: String
-    var score: String
-}
-
 struct ClienteleView: View {
 
-    @State private var clients: [ClientInfo] = []
-    @State private var selectedClient: ClientInfo? = nil
+    @State private var clients: [ClientSummary] = []
+    @State private var isLoading = true
     @State private var showAddClient = false
+    @State private var selectedClient: ClientSummary? = nil
+    @State private var listener: ListenerRegistration? = nil
+
+    var totalRevenue: Double {
+        clients.reduce(0) { $0 + $1.totalRevenue }
+    }
 
     var body: some View {
-        List {
-            ForEach(clients) { client in
-                Button {
-                    selectedClient = client
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(client.companyName)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        Text("Client ID: \(client.id)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+        NavigationStack {
+            List {
+
+                // MARK: - Summary Stats
+                Section {
+                    HStack(spacing: 0) {
+                        ClientStatPill(
+                            value: "\(clients.count)",
+                            label: "Total Clients",
+                            color: .blue
+                        )
+                        Divider().frame(height: 30)
+                        ClientStatPill(
+                            value: "$\(Int(totalRevenue))",
+                            label: "Total Revenue",
+                            color: .green
+                        )
+                        Divider().frame(height: 30)
+                        ClientStatPill(
+                            value: "\(clients.reduce(0) { $0 + $1.totalLoads })",
+                            label: "Total Loads",
+                            color: .purple
+                        )
                     }
-                    .padding(.vertical, 4)
+                }
+
+                // MARK: - Client List
+                Section("Clients") {
+                    if isLoading {
+                        ProgressView("Loading clients...")
+                    } else if clients.isEmpty {
+                        ContentUnavailableView(
+                            "No Clients",
+                            systemImage: "building.2",
+                            description: Text("Add a client to get started.")
+                        )
+                    } else {
+                        ForEach(clients.sorted { $0.totalRevenue > $1.totalRevenue }) { client in
+                            Button {
+                                selectedClient = client
+                            } label: {
+                                VStack(alignment: .leading, spacing: 8) {
+
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(client.companyName)
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+                                            Text("Broker: \(client.brokerName)")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+
+                                    Divider()
+
+                                    HStack(spacing: 16) {
+                                        Label(
+                                            "\(client.totalLoads) loads",
+                                            systemImage: "shippingbox.fill"
+                                        )
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+
+                                        Label(
+                                            "$\(Int(client.totalRevenue))",
+                                            systemImage: "dollarsign.circle.fill"
+                                        )
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+
+                                        if let last = client.lastLoadDate {
+                                            Label(
+                                                last.formatted(date: .abbreviated, time: .omitted),
+                                                systemImage: "clock"
+                                            )
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
                 }
             }
-            .onDelete { clients.remove(atOffsets: $0) }
-        }
-        .navigationTitle("Clientele")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddClient = true
-                } label: {
-                    Image(systemName: "plus")
+            .navigationTitle("Clientele")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAddClient = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
-        }
-        .onAppear { fetchClients() }
-        .sheet(item: $selectedClient) { client in
-            ClientDetailView(client: client) { updatedClient in
-                if let index = clients.firstIndex(where: { $0.id == updatedClient.id }) {
-                    clients[index] = updatedClient
-                }
+            .onAppear { fetchClients() }
+            .onDisappear {
+                listener?.remove()
+                listener = nil
             }
-        }
-        .sheet(isPresented: $showAddClient) {
-            AddClientView { newClient in clients.append(newClient) }
+            .sheet(isPresented: $showAddClient) {
+                AddClientView()
+            }
+            .sheet(item: $selectedClient) { client in
+                ClientDetailView(client: client)
+            }
         }
     }
 
+    // MARK: - Fetch Clients + Load Stats
     func fetchClients() {
-        Firestore.firestore().collection("clients").getDocuments { snapshot, _ in
-            guard let docs = snapshot?.documents else { return }
-            DispatchQueue.main.async {
-                clients = docs.map { doc in
+        isLoading = true
+
+        Firestore.firestore()
+            .collection("clients")
+            .getDocuments { snapshot, _ in
+                guard let clientDocs = snapshot?.documents else {
+                    DispatchQueue.main.async { isLoading = false }
+                    return
+                }
+
+                let group = DispatchGroup()
+                var summaries: [ClientSummary] = []
+
+                for doc in clientDocs {
                     let d = doc.data()
-                    return ClientInfo(
-                        id: doc.documentID,
-                        companyName: d["companyName"] as? String ?? "",
-                        brokerName: d["brokerName"] as? String ?? "",
-                        phone: d["phone"] as? String ?? "",
-                        email: d["email"] as? String ?? "",
-                        address: d["address"] as? String ?? "",
-                        score: d["score"] as? String ?? ""
-                    )
+                    let companyName = d["companyName"] as? String ?? ""
+                    let brokerName = d["brokerName"] as? String ?? ""
+                    let phone = d["phone"] as? String ?? ""
+                    let email = d["email"] as? String ?? ""
+
+                    group.enter()
+
+                    // ✅ Fetch delivered loads for this client
+                    Firestore.firestore()
+                        .collection("loads")
+                        .whereField("clientID", isEqualTo: doc.documentID)
+                        .getDocuments { loadSnap, _ in
+                            let loadDocs = loadSnap?.documents ?? []
+
+                            let totalLoads = loadDocs.count
+                            var totalRevenue: Double = 0
+                            var lastLoadDate: Date? = nil
+
+                            for loadDoc in loadDocs {
+                                let ld = loadDoc.data()
+                                let rate = Double(ld["rate"] as? String ?? "0") ?? 0
+                                let status = ld["status"] as? String ?? ""
+                                let deliveredAt = (ld["deliveredAt"] as? Timestamp)?.dateValue()
+
+                                if status.lowercased() == "delivered" {
+                                    totalRevenue += rate
+                                    if let da = deliveredAt {
+                                        if lastLoadDate == nil || da > lastLoadDate! {
+                                            lastLoadDate = da
+                                        }
+                                    }
+                                }
+                            }
+
+                            summaries.append(ClientSummary(
+                                id: doc.documentID,
+                                companyName: companyName,
+                                brokerName: brokerName,
+                                phone: phone,
+                                email: email,
+                                totalLoads: totalLoads,
+                                totalRevenue: totalRevenue,
+                                lastLoadDate: lastLoadDate
+                            ))
+
+                            group.leave()
+                        }
+                }
+
+                group.notify(queue: .main) {
+                    clients = summaries
+                    isLoading = false
                 }
             }
-        }
     }
 }
 
@@ -90,171 +215,49 @@ struct ClienteleView: View {
 struct ClientDetailView: View {
 
     @Environment(\.dismiss) var dismiss
-    let client: ClientInfo
-    var onUpdate: (ClientInfo) -> Void
-
-    @State private var isEditing = false
-    @State private var companyName = ""
-    @State private var brokerName = ""
-    @State private var phone = ""
-    @State private var email = ""
-    @State private var address = ""
-    @State private var score = ""
-    @State private var isSaving = false
-    @State private var errorMessage = ""
+    let client: ClientSummary
 
     var body: some View {
         NavigationStack {
             List {
-                if isEditing {
 
-                    Section("Client Info") {
-                        TextField("Company Name", text: $companyName)
-                        TextField("Broker Name", text: $brokerName)
+                Section("Company Info") {
+                    DetailRow(label: "Company", value: client.companyName)
+                    DetailRow(label: "Broker", value: client.brokerName)
+                    if !client.phone.isEmpty {
+                        DetailRow(label: "Phone", value: client.phone)
                     }
-
-                    Section("Contact") {
-                        TextField("Phone", text: $phone)
-                            .keyboardType(.phonePad)
-                        TextField("Email", text: $email)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                        TextField("Address", text: $address)
+                    if !client.email.isEmpty {
+                        DetailRow(label: "Email", value: client.email)
                     }
+                }
 
-                    Section("Performance") {
-                        TextField("Score", text: $score)
-                    }
-
-                    if !errorMessage.isEmpty {
-                        Section {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                        }
-                    }
-
-                    Section {
-                        Button {
-                            saveChanges()
-                        } label: {
-                            if isSaving {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("Save Changes")
-                                        .fontWeight(.semibold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                            }
-                        }
-                        .disabled(isSaving)
-                    }
-
-                } else {
-
-                    Section("Client Info") {
-                        DetailRow(label: "Client ID", value: client.id)
-                        DetailRow(label: "Company Name", value: companyName)
-                        DetailRow(label: "Broker Name", value: brokerName)
-                    }
-
-                    Section("Contact") {
-                        DetailRow(label: "Phone", value: phone.isEmpty ? "—" : phone)
-                        DetailRow(label: "Email", value: email.isEmpty ? "—" : email)
-                        DetailRow(label: "Address", value: address.isEmpty ? "—" : address)
-                    }
-
-                    Section("Performance") {
-                        DetailRow(label: "Score", value: score.isEmpty ? "—" : score)
+                Section("Load History") {
+                    DetailRow(label: "Total Loads", value: "\(client.totalLoads)")
+                    DetailRow(
+                        label: "Total Revenue",
+                        value: "$\(String(format: "%.2f", client.totalRevenue))"
+                    )
+                    if let last = client.lastLoadDate {
+                        DetailRow(
+                            label: "Last Load",
+                            value: last.formatted(date: .abbreviated, time: .omitted)
+                        )
                     }
                 }
             }
-            .navigationTitle(companyName.isEmpty ? "Client" : companyName)
-            .onAppear { loadFields() }
+            .navigationTitle(client.companyName)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(isEditing ? "Cancel" : "Close") {
-                        if isEditing {
-                            isEditing = false
-                            loadFields()
-                        } else {
-                            dismiss()
-                        }
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(isEditing ? "Done" : "Edit") {
-                        if isEditing {
-                            saveChanges()
-                        } else {
-                            isEditing = true
-                        }
-                    }
-                    .fontWeight(isEditing ? .bold : .regular)
+                    Button("Done") { dismiss() }
                 }
             }
         }
-    }
-
-    func loadFields() {
-        companyName = client.companyName
-        brokerName = client.brokerName
-        phone = client.phone
-        email = client.email
-        address = client.address
-        score = client.score
-    }
-
-    func saveChanges() {
-        guard !companyName.isEmpty else {
-            errorMessage = "Company name cannot be empty."
-            return
-        }
-
-        isSaving = true
-        errorMessage = ""
-
-        Firestore.firestore()
-            .collection("clients")
-            .document(client.id)
-            .updateData([
-                "companyName": companyName,
-                "brokerName": brokerName,
-                "phone": phone,
-                "email": email,
-                "address": address,
-                "score": score
-            ]) { error in
-                DispatchQueue.main.async {
-                    isSaving = false
-                    if let error = error {
-                        errorMessage = error.localizedDescription
-                    } else {
-                        let updated = ClientInfo(
-                            id: client.id,
-                            companyName: companyName,
-                            brokerName: brokerName,
-                            phone: phone,
-                            email: email,
-                            address: address,
-                            score: score
-                        )
-                        onUpdate(updated)
-                        isEditing = false
-                    }
-                }
-            }
     }
 }
 
-// MARK: - Add Client
+// MARK: - Add Client View
 struct AddClientView: View {
 
     @Environment(\.dismiss) var dismiss
@@ -262,16 +265,13 @@ struct AddClientView: View {
     @State private var brokerName = ""
     @State private var phone = ""
     @State private var email = ""
-    @State private var address = ""
-    @State private var score = ""
     @State private var errorMessage = ""
-
-    var onAdd: (ClientInfo) -> Void
+    @State private var isSaving = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Client Info") {
+                Section("Company Info") {
                     TextField("Company Name", text: $companyName)
                     TextField("Broker Name", text: $brokerName)
                 }
@@ -281,10 +281,6 @@ struct AddClientView: View {
                     TextField("Email", text: $email)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
-                    TextField("Address", text: $address)
-                }
-                Section("Performance") {
-                    TextField("Score", text: $score)
                 }
 
                 if !errorMessage.isEmpty {
@@ -294,64 +290,108 @@ struct AddClientView: View {
                             .font(.caption)
                     }
                 }
+
+                Section {
+                    Button {
+                        saveClient()
+                    } label: {
+                        if isSaving {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Client").fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .disabled(isSaving)
+                }
             }
             .navigationTitle("Add Client")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveClient() }
                 }
             }
         }
     }
 
-    // ✅ Single saveClient function with duplicate check
     func saveClient() {
         guard !companyName.isEmpty else {
-            errorMessage = "Company name cannot be empty."
+            errorMessage = "Company name is required."
+            return
+        }
+        guard !brokerName.isEmpty else {
+            errorMessage = "Broker name is required."
             return
         }
 
+        isSaving = true
+        errorMessage = ""
+
+        // ✅ Duplicate check
         Firestore.firestore()
             .collection("clients")
-            .whereField(
-                "companyName",
-                isEqualTo: companyName.trimmingCharacters(in: .whitespaces)
-            )
-            .getDocuments { snapshot, error in
-                if let snapshot = snapshot, !snapshot.documents.isEmpty {
+            .whereField("companyName", isEqualTo: companyName)
+            .getDocuments { snapshot, _ in
+                if let count = snapshot?.documents.count, count > 0 {
                     DispatchQueue.main.async {
                         errorMessage = "A client with this company name already exists."
+                        isSaving = false
                     }
                     return
                 }
 
-                let ref = Firestore.firestore().collection("clients").document()
-                ref.setData([
-                    "companyName": companyName.trimmingCharacters(in: .whitespaces),
-                    "brokerName": brokerName.trimmingCharacters(in: .whitespaces),
+                Firestore.firestore().collection("clients").addDocument(data: [
+                    "companyName": companyName,
+                    "brokerName": brokerName,
                     "phone": phone,
-                    "email": email.lowercased().trimmingCharacters(in: .whitespaces),
-                    "address": address,
-                    "score": score
-                ])
-
-                let newClient = ClientInfo(
-                    id: ref.documentID,
-                    companyName: companyName,
-                    brokerName: brokerName,
-                    phone: phone,
-                    email: email,
-                    address: address,
-                    score: score
-                )
-
-                DispatchQueue.main.async {
-                    onAdd(newClient)
-                    dismiss()
+                    "email": email,
+                    "createdAt": Timestamp()
+                ]) { _ in
+                    DispatchQueue.main.async {
+                        isSaving = false
+                        dismiss()
+                    }
                 }
             }
     }
+}
+
+// MARK: - Stat Pill
+struct ClientStatPill: View {
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Models
+struct ClientSummary: Identifiable {
+    let id: String
+    var companyName: String
+    var brokerName: String
+    var phone: String
+    var email: String
+    var totalLoads: Int
+    var totalRevenue: Double
+    var lastLoadDate: Date?
 }

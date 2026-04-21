@@ -170,7 +170,4 @@ struct AddVehicleView: View {
 }
 
 // MARK: - Driver Option Model
-struct DriverOption: Identifiable {
-    let id: String
-    let name: String
-}
+
