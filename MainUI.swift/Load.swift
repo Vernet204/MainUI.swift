@@ -8,18 +8,7 @@
 
 import SwiftUI
 import Foundation
-
-// MARK: - Load (local model for AppState)
-struct Load: Identifiable {
-    let id = UUID()
-    var loadID: String
-    var pickup: String
-    var delivery: String
-    var weight: String
-    var rate: String
-    var status: String
-}
-
+ 
 // MARK: - LoadInfo (Firestore model with proper Date types)
 struct LoadInfo: Identifiable {
     let id: String
@@ -32,13 +21,13 @@ struct LoadInfo: Identifiable {
     var commodity: String
     var rate: String
     var weight: String
-    var assignedDriver: String = ""  // ✅ add this
+    var assignedDriver: String = ""
 }
-
+ 
 // MARK: - StatusBadge
 struct StatusBadge: View {
     let status: String
-
+ 
     var body: some View {
         Text(status)
             .font(.caption2)
@@ -49,7 +38,7 @@ struct StatusBadge: View {
             .foregroundColor(color)
             .cornerRadius(8)
     }
-
+ 
     private var color: Color {
         switch status {
         case "Unassigned": return .orange

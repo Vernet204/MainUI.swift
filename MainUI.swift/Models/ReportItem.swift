@@ -1,6 +1,3 @@
-import SwiftUI
-
-import SwiftUI
 
 import SwiftUI
 
@@ -20,4 +17,3 @@ struct ReportItem: Identifiable {
     var odometer: String = ""
     var defectsFound: Bool = false
 }
-

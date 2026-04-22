@@ -6,20 +6,16 @@ struct DVIRInspectionView: View {
     @State private var selectedDriver: ReportDriver? = nil
     @State private var selectedVehicle: ReportVehicle? = nil
     @State private var trailerID = ""
-
     @State private var drivers: [ReportDriver] = []
     @State private var vehicles: [ReportVehicle] = []
-
     @State private var odometer = ""
     @State private var inspectionDate = Date()
-
     @State private var brakesOK = false
     @State private var tiresOK = false
     @State private var lightsOK = false
     @State private var mirrorsOK = false
     @State private var hornOK = false
     @State private var engineOK = false
-
     @State private var defectsFound = false
     @State private var defectDescription = ""
     @State private var showConfirmation = false
@@ -29,7 +25,6 @@ struct DVIRInspectionView: View {
         NavigationStack {
             Form {
 
-                // MARK: - Driver & Vehicle Pickers
                 Section("Driver Information") {
                     Picker("Select Driver", selection: $selectedDriver) {
                         Text("Select a driver...").tag(Optional<ReportDriver>(nil))
@@ -56,22 +51,19 @@ struct DVIRInspectionView: View {
                     .pickerStyle(.menu)
 
                     TextField("Trailer ID (optional)", text: $trailerID)
-
                     TextField("Odometer Reading", text: $odometer)
                         .keyboardType(.numberPad)
                 }
 
-                // MARK: - Safety Checklist
                 Section("Safety Inspection Checklist") {
-                    Toggle("Brakes Operational", isOn: $brakesOK)
-                    Toggle("Tires in Good Condition", isOn: $tiresOK)
-                    Toggle("Lights & Signals Working", isOn: $lightsOK)
+                    Toggle("Brakes Operational",          isOn: $brakesOK)
+                    Toggle("Tires in Good Condition",     isOn: $tiresOK)
+                    Toggle("Lights & Signals Working",    isOn: $lightsOK)
                     Toggle("Mirrors Secure & Functional", isOn: $mirrorsOK)
-                    Toggle("Horn Working", isOn: $hornOK)
-                    Toggle("Engine & Fluids OK", isOn: $engineOK)
+                    Toggle("Horn Working",                isOn: $hornOK)
+                    Toggle("Engine & Fluids OK",          isOn: $engineOK)
                 }
 
-                // MARK: - Defects
                 Section("Defects & Issues") {
                     Toggle("Defects Found?", isOn: $defectsFound)
                     if defectsFound {
@@ -81,10 +73,20 @@ struct DVIRInspectionView: View {
                             axis: .vertical
                         )
                         .lineLimit(3...6)
+
+                        // ✅ Inform driver a maintenance record will be auto-created
+                        HStack(spacing: 6) {
+                            Image(systemName: "wrench.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            Text("A maintenance record will be created automatically.")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.top, 4)
                     }
                 }
 
-                // MARK: - Error
                 if !errorMessage.isEmpty {
                     Section {
                         Text(errorMessage)
@@ -93,15 +95,13 @@ struct DVIRInspectionView: View {
                     }
                 }
 
-                // MARK: - Submit
                 Section {
                     Button {
                         submitDVIR()
                     } label: {
                         HStack {
                             Image(systemName: "checkmark.seal.fill")
-                            Text("Submit DVIR Report")
-                                .fontWeight(.semibold)
+                            Text("Submit DVIR Report").fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -118,12 +118,15 @@ struct DVIRInspectionView: View {
                 fetchVehicles()
             }
             .alert("DVIR Submitted Successfully", isPresented: $showConfirmation) {
-                Button("OK", role: .cancel) {}
+                Button("OK", role: .cancel) { resetForm() }
+            } message: {
+                Text(defectsFound
+                     ? "Report saved and a maintenance record has been created for this vehicle."
+                     : "Inspection passed and vehicle status has been updated.")
             }
         }
     }
 
-    // MARK: - Fetch Drivers
     func fetchDrivers() {
         Firestore.firestore()
             .collection("users")
@@ -131,17 +134,13 @@ struct DVIRInspectionView: View {
             .getDocuments { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
                 DispatchQueue.main.async {
-                    drivers = docs.map { doc in
-                        ReportDriver(
-                            id: doc.documentID,
-                            name: doc.data()["name"] as? String ?? ""
-                        )
+                    drivers = docs.map {
+                        ReportDriver(id: $0.documentID, name: $0.data()["name"] as? String ?? "")
                     }.filter { !$0.name.isEmpty }
                 }
             }
     }
 
-    // MARK: - Fetch Vehicles
     func fetchVehicles() {
         Firestore.firestore()
             .collection("vehicles")
@@ -161,16 +160,9 @@ struct DVIRInspectionView: View {
             }
     }
 
-    // MARK: - Submit DVIR
     func submitDVIR() {
-        guard let driver = selectedDriver else {
-            errorMessage = "Please select a driver."
-            return
-        }
-        guard let vehicle = selectedVehicle else {
-            errorMessage = "Please select a vehicle."
-            return
-        }
+        guard let driver = selectedDriver else { errorMessage = "Please select a driver."; return }
+        guard let vehicle = selectedVehicle else { errorMessage = "Please select a vehicle."; return }
         errorMessage = ""
 
         let reportNumber = "DVIR-\(Int.random(in: 1000...9999))"
@@ -202,16 +194,22 @@ struct DVIRInspectionView: View {
                     return
                 }
                 self.updateVehicleStatus(vehicle: vehicle, driver: driver)
+
+                // ✅ Auto-create maintenance record when defects found
+                if self.defectsFound {
+                    self.createMaintenanceRecord(
+                        vehicle: vehicle,
+                        driver: driver,
+                        reportNumber: reportNumber
+                    )
+                }
+
                 showConfirmation = true
             }
     }
 
-    // MARK: - Update Vehicle Status
     func updateVehicleStatus(vehicle: ReportVehicle, driver: ReportDriver) {
-        let ref = Firestore.firestore()
-            .collection("vehicles")
-            .document(vehicle.id)
-
+        let ref = Firestore.firestore().collection("vehicles").document(vehicle.id)
         if defectsFound {
             ref.updateData([
                 "status": "In Maintenance",
@@ -226,6 +224,59 @@ struct DVIRInspectionView: View {
                 "lastInspectedBy": driver.name
             ])
         }
+    }
+
+    // ✅ Auto-create a maintenance record linked to the DVIR report
+    func createMaintenanceRecord(
+        vehicle: ReportVehicle,
+        driver: ReportDriver,
+        reportNumber: String
+    ) {
+        // Default due date: 3 days from now
+        let dueDate = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()
+
+        Firestore.firestore()
+            .collection("maintenance")
+            .addDocument(data: [
+                "vehicleUnit": vehicle.unitNumber,
+                "vehiclePlate": vehicle.plate,
+                "maintenanceType": "DVIR Defect Repair",
+                "description": defectDescription,
+                "status": "Scheduled",
+                "dueDate": Timestamp(date: dueDate),
+                "estimatedCost": "",
+                "mileageAtService": odometer,
+                "technicianName": "",
+                "notes": "Auto-created from DVIR \(reportNumber) by \(driver.name)",
+                // ✅ Traceability: link back to originating DVIR report
+                "sourceReportNumber": reportNumber,
+                "reportedBy": driver.name,
+                "createdAt": Timestamp()
+            ]) { error in
+                if let error = error {
+                    print("❌ Error creating maintenance record: \(error.localizedDescription)")
+                } else {
+                    print("✅ Maintenance record auto-created from \(reportNumber)")
+                }
+            }
+    }
+
+    func resetForm() {
+        selectedDriver = nil
+        selectedVehicle = nil
+        trailerID = ""
+        odometer = ""
+        inspectionDate = Date()
+        brakesOK = false
+        tiresOK = false
+        lightsOK = false
+        mirrorsOK = false
+        hornOK = false
+        engineOK = false
+        defectsFound = false
+        defectDescription = ""
+        errorMessage = ""
+        fetchVehicles()
     }
 }
 
