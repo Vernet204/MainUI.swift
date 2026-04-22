@@ -85,9 +85,7 @@ struct DriverDashboardView: View {
                                             .fontWeight(.semibold)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
-                                            .background(
-                                                statusColor(load.status).opacity(0.15)
-                                            )
+                                            .background(statusColor(load.status).opacity(0.15))
                                             .foregroundColor(statusColor(load.status))
                                             .clipShape(Capsule())
                                     }
@@ -118,7 +116,6 @@ struct DriverDashboardView: View {
                                             .foregroundColor(.secondary)
                                     }
 
-                                    // ✅ Action hint
                                     HStack {
                                         Spacer()
                                         Text(load.status.lowercased() == "in transit"
@@ -170,7 +167,7 @@ struct DriverDashboardView: View {
                         }
                     }
 
-                    // MARK: - Quick Actions
+                    // MARK: - My Loads
                     VStack(alignment: .leading, spacing: 10) {
                         Text("My Loads")
                             .font(.headline)
@@ -300,9 +297,7 @@ struct DriverDashboardView: View {
 
                 var active = 0
                 var delivered = 0
-                var current: DriverLoad? = nil
 
-                // Priority: In Transit > Accepted > Assigned
                 var inTransitLoad: DriverLoad? = nil
                 var acceptedLoad: DriverLoad? = nil
                 var assignedLoad: DriverLoad? = nil
@@ -341,7 +336,7 @@ struct DriverDashboardView: View {
                 }
 
                 // ✅ Show most urgent load
-                current = inTransitLoad ?? acceptedLoad ?? assignedLoad
+                let current = inTransitLoad ?? acceptedLoad ?? assignedLoad
 
                 DispatchQueue.main.async {
                     activeLoadsCount = active
@@ -539,7 +534,7 @@ struct DriverLoadBoardView: View {
         listener = Firestore.firestore()
             .collection("loads")
             .whereField("assignedDriver", isEqualTo: driverName)
-            .addSnapshotListener { snapshot, error in
+            .addSnapshotListener { snapshot, _ in
                 guard let docs = snapshot?.documents else {
                     DispatchQueue.main.async { isLoading = false }
                     return
@@ -576,6 +571,7 @@ struct DriverLoadBoardView: View {
                 "acceptedAt": Timestamp(),
                 "acceptedBy": driverName
             ] as [String: Any])
+            selectedLoad = nil  // ✅ dismiss for accept
 
         case .decline:
             db.collection("loads").document(load.id).updateData([
@@ -585,12 +581,15 @@ struct DriverLoadBoardView: View {
                 "declinedAt": Timestamp(),
                 "declinedBy": driverName
             ] as [String: Any])
+            // ✅ Do NOT set selectedLoad = nil here
+            // LoadAcceptDeclineView manages its own dismissal for decline
 
         case .inTransit:
             db.collection("loads").document(load.id).updateData([
                 "status": "In Transit",
                 "transitStartedAt": Timestamp()
             ] as [String: Any])
+            selectedLoad = nil
 
         case .delivered:
             db.collection("loads").document(load.id).updateData([
@@ -598,9 +597,8 @@ struct DriverLoadBoardView: View {
                 "deliveredAt": Timestamp(),
                 "deliveredBy": driverName
             ] as [String: Any])
+            selectedLoad = nil
         }
-
-        selectedLoad = nil
     }
 
     func statusColor(_ status: String) -> Color {
@@ -626,25 +624,38 @@ struct LoadAcceptDeclineView: View {
     let load: DriverLoad
     var onAction: (LoadAction) -> Void
 
-    @State private var showDeclineConfirm = false
+    @State private var showDeclineReasonSheet = false
     @State private var showInTransitConfirm = false
     @State private var showDeliveredConfirm = false
+    @State private var selectedDeclineReason = ""
+    @State private var navigateToRepairReport = false
+    @State private var navigateToAccidentReport = false
+
+    let declineReasons = [
+        "Vehicle Breakdown",
+        "Accident",
+        "Load Not Ready",
+        "Route Unavailable",
+        "Personal Emergency",
+        "Other"
+    ]
 
     var body: some View {
         NavigationStack {
             List {
 
                 Section("Load Details") {
-                    DetailRow(label: "Load ID", value: load.loadID)
-                    DetailRow(label: "Pickup", value: load.pickupLocation)
-                    DetailRow(label: "Pickup Date & Time", value: load.pickupDate)
-                    DetailRow(label: "Destination", value: load.deliveryLocation)
+                    DetailRow(label: "Load ID",              value: load.loadID)
+                    DetailRow(label: "Pickup",               value: load.pickupLocation)
+                    DetailRow(label: "Pickup Date & Time",   value: load.pickupDate)
+                    DetailRow(label: "Destination",          value: load.deliveryLocation)
                     DetailRow(label: "Delivery Date & Time", value: load.dropoffDate)
-                    DetailRow(label: "Current Status", value: load.status)
+                    DetailRow(label: "Current Status",       value: load.status)
                 }
 
                 Section("Actions") {
 
+                    // MARK: Assigned — Accept or Decline
                     if load.status.lowercased() == "assigned" {
                         Button {
                             onAction(.accept)
@@ -659,7 +670,7 @@ struct LoadAcceptDeclineView: View {
                         }
 
                         Button {
-                            showDeclineConfirm = true
+                            showDeclineReasonSheet = true
                         } label: {
                             HStack {
                                 Image(systemName: "xmark.circle.fill")
@@ -670,6 +681,7 @@ struct LoadAcceptDeclineView: View {
                         }
                     }
 
+                    // MARK: Accepted — Start Trip
                     if load.status.lowercased() == "accepted" {
                         HStack {
                             Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
@@ -677,9 +689,7 @@ struct LoadAcceptDeclineView: View {
                         }
                         .frame(maxWidth: .infinity).padding()
 
-                        Button {
-                            showInTransitConfirm = true
-                        } label: {
+                        Button { showInTransitConfirm = true } label: {
                             HStack {
                                 Image(systemName: "truck.box.fill")
                                 Text("Start Trip — Mark In Transit").fontWeight(.semibold)
@@ -689,6 +699,7 @@ struct LoadAcceptDeclineView: View {
                         }
                     }
 
+                    // MARK: In Transit — Mark Delivered or Could Not Deliver
                     if load.status.lowercased() == "in transit" {
                         HStack {
                             Image(systemName: "truck.box.fill").foregroundColor(.purple)
@@ -696,9 +707,7 @@ struct LoadAcceptDeclineView: View {
                         }
                         .frame(maxWidth: .infinity).padding()
 
-                        Button {
-                            showDeliveredConfirm = true
-                        } label: {
+                        Button { showDeliveredConfirm = true } label: {
                             HStack {
                                 Image(systemName: "shippingbox.fill")
                                 Text("Mark as Delivered").fontWeight(.semibold)
@@ -706,8 +715,19 @@ struct LoadAcceptDeclineView: View {
                             .frame(maxWidth: .infinity).padding()
                             .background(Color.blue).foregroundColor(.white).cornerRadius(12)
                         }
+
+                        // ✅ Could Not Deliver — opens the same reason sheet as Decline
+                        Button { showDeclineReasonSheet = true } label: {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text("Could Not Deliver").fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity).padding()
+                            .background(Color.orange).foregroundColor(.white).cornerRadius(12)
+                        }
                     }
 
+                    // MARK: Declined — info only
                     if load.status.lowercased() == "declined" {
                         HStack {
                             Spacer()
@@ -724,6 +744,7 @@ struct LoadAcceptDeclineView: View {
                         .padding()
                     }
 
+                    // MARK: Delivered — info only
                     if load.status.lowercased() == "delivered" {
                         HStack {
                             Spacer()
@@ -744,23 +765,127 @@ struct LoadAcceptDeclineView: View {
                     Button("Back") { dismiss() }
                 }
             }
-            .confirmationDialog("Decline this load?", isPresented: $showDeclineConfirm, titleVisibility: .visible) {
-                Button("Yes, Decline", role: .destructive) { onAction(.decline); dismiss() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This load will be sent back to your dispatcher for reassignment.")
+            .sheet(isPresented: $showDeclineReasonSheet) {
+                DeclineReasonSheet(
+                    reasons: declineReasons,
+                    selectedReason: $selectedDeclineReason
+                ) { reason in
+                    onAction(.decline)  // Updates Firestore, sheet stays open
+
+                    if reason == "Vehicle Breakdown" {
+                        navigateToRepairReport = true  // ✅ Sheet still alive, navigation fires
+                    } else if reason == "Accident" {
+                        navigateToAccidentReport = true  // ✅ Sheet still alive, navigation fires
+                    } else {
+                        dismiss()  // ✅ All other reasons just dismiss
+                    }
+                }
             }
-            .confirmationDialog("Start trip?", isPresented: $showInTransitConfirm, titleVisibility: .visible) {
+            .navigationDestination(isPresented: $navigateToRepairReport) {
+                RepairReportView()
+                    .onDisappear { dismiss() }
+            }
+            .navigationDestination(isPresented: $navigateToAccidentReport) {
+                AccidentReportView()
+                    .onDisappear { dismiss() }
+            }
+            .confirmationDialog(
+                "Start trip?",
+                isPresented: $showInTransitConfirm,
+                titleVisibility: .visible
+            ) {
                 Button("Yes, Start Trip") { onAction(.inTransit); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will mark the load as In Transit.")
             }
-            .confirmationDialog("Mark as Delivered?", isPresented: $showDeliveredConfirm, titleVisibility: .visible) {
+            .confirmationDialog(
+                "Mark as Delivered?",
+                isPresented: $showDeliveredConfirm,
+                titleVisibility: .visible
+            ) {
                 Button("Yes, Mark Delivered") { onAction(.delivered); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will mark the load as Delivered.")
+            }
+        }
+    }
+}
+
+// MARK: - Decline Reason Sheet
+struct DeclineReasonSheet: View {
+
+    @Environment(\.dismiss) var dismiss
+    let reasons: [String]
+    @Binding var selectedReason: String
+    var onConfirm: (String) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(reasons, id: \.self) { reason in
+                        Button {
+                            selectedReason = reason
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(reason)
+                                        .foregroundColor(.primary)
+                                        .font(.subheadline)
+                                    if reason == "Vehicle Breakdown" {
+                                        Text("A repair report will be opened")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    } else if reason == "Accident" {
+                                        Text("An accident report will be opened")
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                                Spacer()
+                                if selectedReason == reason {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                } header: {
+                    Text("Why are you declining this load?")
+                }
+
+                if !selectedReason.isEmpty {
+                    Section {
+                        Button {
+                            let reason = selectedReason
+                            dismiss()
+                            // ✅ Small delay so sheet dismisses before navigation fires
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onConfirm(reason)
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "xmark.circle.fill")
+                                Text("Confirm Decline").fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Decline Reason")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
             }
         }
     }
