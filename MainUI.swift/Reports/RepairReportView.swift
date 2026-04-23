@@ -9,13 +9,15 @@ import FirebaseFirestore
 
 struct RepairReportView: View {
 
+    // ✅ Pre-fill support — passed when navigating from Could Not Deliver / Vehicle Breakdown
+    var prefilledDriverName: String = ""
+    var prefilledVehicleUnit: String = ""
+
     @State private var selectedDriver: ReportDriver? = nil
     @State private var selectedVehicle: ReportVehicle? = nil
     @State private var trailerID = ""
-
     @State private var drivers: [ReportDriver] = []
     @State private var vehicles: [ReportVehicle] = []
-
     @State private var issueType = "Mechanical"
     @State private var severity = "Medium"
     @State private var issueDescription = ""
@@ -23,7 +25,10 @@ struct RepairReportView: View {
     @State private var reportSubmitted = false
     @State private var errorMessage = ""
 
-    let issueTypes = ["Mechanical", "Tire Issue", "Engine Problem", "Trailer Damage", "Electrical", "Other"]
+    let issueTypes = [
+        "Mechanical", "Tire Issue", "Engine Problem",
+        "Trailer Damage", "Electrical", "Other"
+    ]
     let severityLevels = ["Low", "Medium", "High", "Critical"]
 
     var body: some View {
@@ -57,9 +62,7 @@ struct RepairReportView: View {
                 }
 
                 Picker("Severity Level", selection: $severity) {
-                    ForEach(severityLevels, id: \.self) { level in
-                        Text(level)
-                    }
+                    ForEach(severityLevels, id: \.self) { Text($0) }
                 }
 
                 TextField("Current Location", text: $location)
@@ -70,9 +73,7 @@ struct RepairReportView: View {
 
             if !errorMessage.isEmpty {
                 Section {
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.caption)
+                    Text(errorMessage).foregroundColor(.red).font(.caption)
                 }
             }
 
@@ -84,11 +85,8 @@ struct RepairReportView: View {
                         Image(systemName: "wrench.and.screwdriver.fill")
                         Text("Submit Repair Report")
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .frame(maxWidth: .infinity).padding()
+                    .background(Color.orange).foregroundColor(.white).cornerRadius(12)
                 }
             }
         }
@@ -112,6 +110,11 @@ struct RepairReportView: View {
                     drivers = docs.map {
                         ReportDriver(id: $0.documentID, name: $0.data()["name"] as? String ?? "")
                     }.filter { !$0.name.isEmpty }
+
+                    // ✅ Pre-select driver if name was passed in
+                    if !prefilledDriverName.isEmpty {
+                        selectedDriver = drivers.first { $0.name == prefilledDriverName }
+                    }
                 }
             }
     }
@@ -130,6 +133,11 @@ struct RepairReportView: View {
                             plate: d["plate"] as? String ?? ""
                         )
                     }.filter { !$0.unitNumber.isEmpty }
+
+                    // ✅ Pre-select vehicle if unit number was passed in
+                    if !prefilledVehicleUnit.isEmpty {
+                        selectedVehicle = vehicles.first { $0.unitNumber == prefilledVehicleUnit }
+                    }
                 }
             }
     }

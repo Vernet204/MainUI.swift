@@ -1,4 +1,3 @@
-//
 //  DriverDashboardView.swift
 //  MainUI.swift
 //
@@ -12,13 +11,10 @@ struct DriverDashboardView: View {
 
     @EnvironmentObject var authManager: AuthManager
 
-    // MARK: - Live Stats
     @State private var activeLoadsCount = 0
     @State private var deliveredCount = 0
     @State private var currentLoad: DriverLoad? = nil
     @State private var assignedVehicle = ""
-
-    // MARK: - Listener
     @State private var listener: ListenerRegistration? = nil
     @State private var isLoading = true
 
@@ -27,7 +23,7 @@ struct DriverDashboardView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
-                    // MARK: - Driver Stats
+                    // MARK: - Stats
                     VStack(alignment: .leading, spacing: 10) {
                         Text("My Overview")
                             .font(.headline)
@@ -56,7 +52,7 @@ struct DriverDashboardView: View {
                         .padding(.horizontal)
                     }
 
-                    // MARK: - Current Load Card (shown when In Transit or Accepted)
+                    // MARK: - Current Load Card
                     if let load = currentLoad,
                        ["accepted", "in transit"].contains(load.status.lowercased()) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -77,62 +73,42 @@ struct DriverDashboardView: View {
                             NavigationLink(destination: DriverLoadBoardView()) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     HStack {
-                                        Text("Load \(load.loadID)")
-                                            .font(.headline)
+                                        Text("Load \(load.loadID)").font(.headline)
                                         Spacer()
                                         Text(load.status)
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
+                                            .font(.caption).fontWeight(.semibold)
+                                            .padding(.horizontal, 10).padding(.vertical, 5)
                                             .background(statusColor(load.status).opacity(0.15))
                                             .foregroundColor(statusColor(load.status))
                                             .clipShape(Capsule())
                                     }
-
                                     Divider()
-
                                     HStack(spacing: 8) {
-                                        Image(systemName: "mappin.circle.fill")
-                                            .foregroundColor(.green)
-                                        Text(load.pickupLocation)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
+                                        Image(systemName: "mappin.circle.fill").foregroundColor(.green)
+                                        Text(load.pickupLocation).font(.subheadline).foregroundColor(.secondary)
                                     }
-
                                     HStack(spacing: 8) {
-                                        Image(systemName: "mappin.and.ellipse")
-                                            .foregroundColor(.red)
-                                        Text(load.deliveryLocation)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
+                                        Image(systemName: "mappin.and.ellipse").foregroundColor(.red)
+                                        Text(load.deliveryLocation).font(.subheadline).foregroundColor(.secondary)
                                     }
-
                                     HStack(spacing: 8) {
-                                        Image(systemName: "clock.fill")
-                                            .foregroundColor(.orange)
-                                        Text("Deliver by: \(load.dropoffDate)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                                        Image(systemName: "clock.fill").foregroundColor(.orange)
+                                        Text("Deliver by: \(load.dropoffDate)").font(.caption).foregroundColor(.secondary)
                                     }
-
                                     HStack {
                                         Spacer()
                                         Text(load.status.lowercased() == "in transit"
-                                             ? "Tap to mark as Delivered →"
+                                             ? "Tap to manage →"
                                              : "Tap to Start Trip →")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
+                                            .font(.caption).fontWeight(.semibold)
                                             .foregroundColor(statusColor(load.status))
                                     }
                                 }
                                 .padding()
                                 .background(statusColor(load.status).opacity(0.06))
                                 .cornerRadius(14)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .stroke(statusColor(load.status).opacity(0.3), lineWidth: 1.5)
-                                )
+                                .overlay(RoundedRectangle(cornerRadius: 14)
+                                    .stroke(statusColor(load.status).opacity(0.3), lineWidth: 1.5))
                                 .padding(.horizontal)
                             }
                         }
@@ -142,23 +118,14 @@ struct DriverDashboardView: View {
                     if let load = currentLoad, load.status.lowercased() == "assigned" {
                         NavigationLink(destination: DriverLoadBoardView()) {
                             HStack(spacing: 12) {
-                                Image(systemName: "bell.badge.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-
+                                Image(systemName: "bell.badge.fill").font(.title2).foregroundColor(.white)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("New Load Assigned!")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
+                                    Text("New Load Assigned!").font(.headline).foregroundColor(.white)
                                     Text("Load \(load.loadID) is waiting for your response.")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.85))
+                                        .font(.caption).foregroundColor(.white.opacity(0.85))
                                 }
-
                                 Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.white.opacity(0.7))
+                                Image(systemName: "chevron.right").foregroundColor(.white.opacity(0.7))
                             }
                             .padding()
                             .background(Color.blue)
@@ -169,31 +136,20 @@ struct DriverDashboardView: View {
 
                     // MARK: - My Loads
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("My Loads")
-                            .font(.headline)
-                            .padding(.horizontal)
-
+                        Text("My Loads").font(.headline).padding(.horizontal)
                         NavigationLink(destination: DriverLoadBoardView()) {
                             HStack {
                                 Image(systemName: "list.bullet.rectangle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
+                                    .font(.title2).foregroundColor(.white)
                                     .frame(width: 50, height: 50)
-                                    .background(Color.blue)
-                                    .cornerRadius(12)
-
+                                    .background(Color.blue).cornerRadius(12)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Assigned Loads")
-                                        .font(.headline)
+                                    Text("Assigned Loads").font(.headline)
                                     Text("\(activeLoadsCount) active load\(activeLoadsCount == 1 ? "" : "s")")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(.caption).foregroundColor(.secondary)
                                 }
-
                                 Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.gray)
+                                Image(systemName: "chevron.right").foregroundColor(.gray)
                             }
                             .padding()
                             .background(Color(.systemGray6))
@@ -204,10 +160,7 @@ struct DriverDashboardView: View {
 
                     // MARK: - Reports
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Reports")
-                            .font(.headline)
-                            .padding(.horizontal)
-
+                        Text("Reports").font(.headline).padding(.horizontal)
                         VStack(spacing: 10) {
                             DriverReportLink(
                                 title: "DVIR Inspection",
@@ -242,17 +195,12 @@ struct DriverDashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Logout") {
-                        authManager.logout()
-                    }
-                    .foregroundColor(.red)
+                    Button("Logout") { authManager.logout() }
+                        .foregroundColor(.red)
                 }
             }
             .onAppear { startListening() }
-            .onDisappear {
-                listener?.remove()
-                listener = nil
-            }
+            .onDisappear { listener?.remove(); listener = nil }
             .onChange(of: authManager.appUser?.name) { _, newName in
                 guard let newName = newName, !newName.isEmpty else { return }
                 guard listener == nil else { return }
@@ -261,30 +209,18 @@ struct DriverDashboardView: View {
         }
     }
 
-    // MARK: - Listener
     func startListening() {
-        guard let driverName = authManager.appUser?.name,
-              !driverName.isEmpty else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                startListening()
-            }
+        guard let driverName = authManager.appUser?.name, !driverName.isEmpty else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { startListening() }
             return
         }
-
         guard listener == nil else { return }
 
-        // ✅ Fetch vehicle assignment from Firestore
         if let uid = Auth.auth().currentUser?.uid {
-            Firestore.firestore()
-                .collection("users")
-                .document(uid)
+            Firestore.firestore().collection("users").document(uid)
                 .getDocument { snapshot, _ in
-                    if let data = snapshot?.data(),
-                       let unit = data["vehicleUnit"] as? String,
-                       !unit.isEmpty {
-                        DispatchQueue.main.async {
-                            assignedVehicle = unit
-                        }
+                    if let unit = snapshot?.data()?["vehicleUnit"] as? String, !unit.isEmpty {
+                        DispatchQueue.main.async { assignedVehicle = unit }
                     }
                 }
         }
@@ -294,10 +230,7 @@ struct DriverDashboardView: View {
             .whereField("assignedDriver", isEqualTo: driverName)
             .addSnapshotListener { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
-
-                var active = 0
-                var delivered = 0
-
+                var active = 0, delivered = 0
                 var inTransitLoad: DriverLoad? = nil
                 var acceptedLoad: DriverLoad? = nil
                 var assignedLoad: DriverLoad? = nil
@@ -307,7 +240,6 @@ struct DriverDashboardView: View {
                     let status = d["status"] as? String ?? ""
                     let pickupDT = (d["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date()
                     let deliveryDT = (d["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date()
-
                     let load = DriverLoad(
                         id: doc.documentID,
                         loadID: d["loadID"] as? String ?? doc.documentID,
@@ -317,27 +249,16 @@ struct DriverDashboardView: View {
                         dropoffDate: deliveryDT.formatted(date: .abbreviated, time: .shortened),
                         status: status
                     )
-
                     switch status.lowercased() {
-                    case "assigned":
-                        active += 1
-                        if assignedLoad == nil { assignedLoad = load }
-                    case "accepted":
-                        active += 1
-                        if acceptedLoad == nil { acceptedLoad = load }
-                    case "in transit":
-                        active += 1
-                        if inTransitLoad == nil { inTransitLoad = load }
-                    case "delivered":
-                        delivered += 1
-                    default:
-                        break
+                    case "assigned":   active += 1; if assignedLoad == nil { assignedLoad = load }
+                    case "accepted":   active += 1; if acceptedLoad == nil { acceptedLoad = load }
+                    case "in transit": active += 1; if inTransitLoad == nil { inTransitLoad = load }
+                    case "delivered":  delivered += 1
+                    default: break
                     }
                 }
 
-                // ✅ Show most urgent load
                 let current = inTransitLoad ?? acceptedLoad ?? assignedLoad
-
                 DispatchQueue.main.async {
                     activeLoadsCount = active
                     deliveredCount = delivered
@@ -367,19 +288,12 @@ struct DriverStatCard: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
+            Image(systemName: icon).font(.title2).foregroundColor(color)
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .font(.subheadline).fontWeight(.bold).foregroundColor(color)
+                .lineLimit(1).minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                .font(.caption2).foregroundColor(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -400,26 +314,15 @@ struct DriverReportLink: View {
         NavigationLink(destination: destination) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(.white)
+                    .font(.title2).foregroundColor(.white)
                     .frame(width: 48, height: 48)
-                    .background(color)
-                    .cornerRadius(12)
-
+                    .background(color).cornerRadius(12)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Text(title).font(.headline).foregroundColor(.primary)
+                    Text(subtitle).font(.caption).foregroundColor(.secondary)
                 }
-
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
-                    .font(.caption)
+                Image(systemName: "chevron.right").foregroundColor(.gray).font(.caption)
             }
             .padding()
             .background(Color(.systemGray6))
@@ -438,9 +341,7 @@ struct DriverLoadBoardView: View {
     @State private var listener: ListenerRegistration? = nil
 
     var activeLoads: [DriverLoad] {
-        loads.filter {
-            !["delivered", "declined"].contains($0.status.lowercased())
-        }
+        loads.filter { !["delivered", "declined"].contains($0.status.lowercased()) }
     }
 
     var body: some View {
@@ -450,44 +351,30 @@ struct DriverLoadBoardView: View {
                     Spacer()
                     VStack(spacing: 12) {
                         ProgressView()
-                        Text("Loading your loads...")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                        Text("Loading your loads...").font(.subheadline).foregroundColor(.gray)
                     }
                     Spacer()
                 }
                 .padding()
-
             } else if activeLoads.isEmpty {
                 ContentUnavailableView(
                     "No Active Loads",
                     systemImage: "tray",
                     description: Text("You have no active loads. Your dispatcher will assign loads here.")
                 )
-
             } else {
                 ForEach(activeLoads) { load in
-                    Button {
-                        selectedLoad = load
-                    } label: {
+                    Button { selectedLoad = load } label: {
                         VStack(alignment: .leading, spacing: 6) {
-
                             HStack {
-                                Text("Load ID: \(load.loadID)")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                                Text("Load ID: \(load.loadID)").font(.headline).foregroundColor(.primary)
                                 Spacer()
                                 Text(load.status)
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
+                                    .font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
                                     .background(statusColor(load.status).opacity(0.15))
-                                    .foregroundColor(statusColor(load.status))
-                                    .clipShape(Capsule())
+                                    .foregroundColor(statusColor(load.status)).clipShape(Capsule())
                             }
-
                             Divider()
-
                             Label("Pickup: \(load.pickupLocation)", systemImage: "mappin.circle")
                                 .font(.subheadline).foregroundColor(.secondary)
                             Label("Date & Time: \(load.pickupDate)", systemImage: "clock")
@@ -504,31 +391,28 @@ struct DriverLoadBoardView: View {
         }
         .navigationTitle("Assigned Loads")
         .onAppear { startListening() }
-        .onDisappear {
-            listener?.remove()
-            listener = nil
-        }
+        .onDisappear { listener?.remove(); listener = nil }
         .onChange(of: authManager.appUser?.name) { _, newName in
             guard let newName = newName, !newName.isEmpty else { return }
             guard listener == nil else { return }
             startListening()
         }
         .sheet(item: $selectedLoad) { load in
-            LoadAcceptDeclineView(load: load) { action in
+            LoadAcceptDeclineView(
+                load: load,
+                driverName: authManager.appUser?.name ?? "",
+                vehicleUnit: authManager.appUser?.vehicleUnit ?? ""
+            ) { action in
                 handleAction(action, for: load)
             }
         }
     }
 
     func startListening() {
-        guard let driverName = authManager.appUser?.name,
-              !driverName.isEmpty else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                startListening()
-            }
+        guard let driverName = authManager.appUser?.name, !driverName.isEmpty else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { startListening() }
             return
         }
-
         guard listener == nil else { return }
 
         listener = Firestore.firestore()
@@ -539,7 +423,6 @@ struct DriverLoadBoardView: View {
                     DispatchQueue.main.async { isLoading = false }
                     return
                 }
-
                 DispatchQueue.main.async {
                     loads = docs.map { doc in
                         let d = doc.data()
@@ -571,7 +454,7 @@ struct DriverLoadBoardView: View {
                 "acceptedAt": Timestamp(),
                 "acceptedBy": driverName
             ] as [String: Any])
-            selectedLoad = nil  // ✅ dismiss for accept
+            selectedLoad = nil
 
         case .decline:
             db.collection("loads").document(load.id).updateData([
@@ -581,8 +464,17 @@ struct DriverLoadBoardView: View {
                 "declinedAt": Timestamp(),
                 "declinedBy": driverName
             ] as [String: Any])
-            // ✅ Do NOT set selectedLoad = nil here
-            // LoadAcceptDeclineView manages its own dismissal for decline
+            // ✅ Do NOT clear selectedLoad here — sheet manages its own dismissal
+            // so navigation to report views can fire first
+
+        case .undelivered:
+            // ✅ Keeps driver assigned so there's a record, sets status for dispatcher
+            db.collection("loads").document(load.id).updateData([
+                "status": "Undelivered",
+                "undeliveredAt": Timestamp(),
+                "undeliveredBy": driverName
+            ] as [String: Any])
+            // ✅ Do NOT clear selectedLoad — navigation to report fires first
 
         case .inTransit:
             db.collection("loads").document(load.id).updateData([
@@ -603,18 +495,69 @@ struct DriverLoadBoardView: View {
 
     func statusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "assigned":   return .blue
-        case "accepted":   return .green
-        case "in transit": return .purple
-        case "delivered":  return .green
-        default:           return .gray
+        case "assigned":    return .blue
+        case "accepted":    return .green
+        case "in transit":  return .purple
+        case "delivered":   return .green
+        case "undelivered": return .orange
+        default:            return .gray
         }
     }
 }
 
 // MARK: - Load Action Enum
 enum LoadAction {
-    case accept, decline, inTransit, delivered
+    case accept, decline, undelivered, inTransit, delivered
+}
+
+// MARK: - Decline Sheet Context
+enum DeclineContext {
+    case declining      // triggered from Assigned status
+    case couldNotDeliver // triggered from In Transit status
+
+    var title: String {
+        switch self {
+        case .declining:       return "Why are you declining this load?"
+        case .couldNotDeliver: return "Why could you not deliver?"
+        }
+    }
+
+    var confirmLabel: String {
+        switch self {
+        case .declining:       return "Confirm Decline"
+        case .couldNotDeliver: return "Confirm — Could Not Deliver"
+        }
+    }
+
+    var confirmColor: Color {
+        switch self {
+        case .declining:       return .red
+        case .couldNotDeliver: return .orange
+        }
+    }
+
+    var reasons: [String] {
+        switch self {
+        case .declining:
+            return [
+                "Vehicle Breakdown",
+                "Accident",
+                "Load Not Ready",
+                "Route Unavailable",
+                "Personal Emergency",
+                "Other"
+            ]
+        case .couldNotDeliver:
+            return [
+                "Vehicle Breakdown",
+                "Accident",
+                "Address Not Found",
+                "Refused Delivery",
+                "Access Denied",
+                "Other"
+            ]
+        }
+    }
 }
 
 // MARK: - Accept / Decline / Status Sheet
@@ -622,6 +565,9 @@ struct LoadAcceptDeclineView: View {
 
     @Environment(\.dismiss) var dismiss
     let load: DriverLoad
+    // ✅ Pre-fill info passed from DriverLoadBoardView
+    let driverName: String
+    let vehicleUnit: String
     var onAction: (LoadAction) -> Void
 
     @State private var showDeclineReasonSheet = false
@@ -630,15 +576,8 @@ struct LoadAcceptDeclineView: View {
     @State private var selectedDeclineReason = ""
     @State private var navigateToRepairReport = false
     @State private var navigateToAccidentReport = false
-
-    let declineReasons = [
-        "Vehicle Breakdown",
-        "Accident",
-        "Load Not Ready",
-        "Route Unavailable",
-        "Personal Emergency",
-        "Other"
-    ]
+    // ✅ Track which context opened the reason sheet
+    @State private var declineContext: DeclineContext = .declining
 
     var body: some View {
         NavigationStack {
@@ -670,6 +609,8 @@ struct LoadAcceptDeclineView: View {
                         }
 
                         Button {
+                            declineContext = .declining
+                            selectedDeclineReason = ""
                             showDeclineReasonSheet = true
                         } label: {
                             HStack {
@@ -716,8 +657,12 @@ struct LoadAcceptDeclineView: View {
                             .background(Color.blue).foregroundColor(.white).cornerRadius(12)
                         }
 
-                        // ✅ Could Not Deliver — opens the same reason sheet as Decline
-                        Button { showDeclineReasonSheet = true } label: {
+                        // ✅ Opens reason sheet in couldNotDeliver context
+                        Button {
+                            declineContext = .couldNotDeliver
+                            selectedDeclineReason = ""
+                            showDeclineReasonSheet = true
+                        } label: {
                             HStack {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                 Text("Could Not Deliver").fontWeight(.semibold)
@@ -732,12 +677,26 @@ struct LoadAcceptDeclineView: View {
                         HStack {
                             Spacer()
                             VStack(spacing: 8) {
-                                Image(systemName: "xmark.seal.fill")
-                                    .font(.largeTitle).foregroundColor(.red)
+                                Image(systemName: "xmark.seal.fill").font(.largeTitle).foregroundColor(.red)
                                 Text("Load Declined").fontWeight(.semibold).foregroundColor(.red)
                                 Text("This load has been sent back to your dispatcher.")
-                                    .font(.caption).foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
+                                    .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                    }
+
+                    // MARK: Undelivered — info only
+                    if load.status.lowercased() == "undelivered" {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.largeTitle).foregroundColor(.orange)
+                                Text("Could Not Deliver").fontWeight(.semibold).foregroundColor(.orange)
+                                Text("Your dispatcher has been notified.")
+                                    .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
                             }
                             Spacer()
                         }
@@ -749,8 +708,7 @@ struct LoadAcceptDeclineView: View {
                         HStack {
                             Spacer()
                             VStack(spacing: 8) {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .font(.largeTitle).foregroundColor(.green)
+                                Image(systemName: "checkmark.seal.fill").font(.largeTitle).foregroundColor(.green)
                                 Text("Load Delivered").fontWeight(.semibold).foregroundColor(.green)
                             }
                             Spacer()
@@ -765,45 +723,51 @@ struct LoadAcceptDeclineView: View {
                     Button("Back") { dismiss() }
                 }
             }
+            // ✅ Single sheet — context controls copy, reasons, and Firestore action
             .sheet(isPresented: $showDeclineReasonSheet) {
                 DeclineReasonSheet(
-                    reasons: declineReasons,
+                    context: declineContext,
                     selectedReason: $selectedDeclineReason
                 ) { reason in
-                    onAction(.decline)  // Updates Firestore, sheet stays open
-
-                    if reason == "Vehicle Breakdown" {
-                        navigateToRepairReport = true  // ✅ Sheet still alive, navigation fires
-                    } else if reason == "Accident" {
-                        navigateToAccidentReport = true  // ✅ Sheet still alive, navigation fires
+                    // ✅ Fire correct Firestore action based on context
+                    if declineContext == .declining {
+                        onAction(.decline)
                     } else {
-                        dismiss()  // ✅ All other reasons just dismiss
+                        onAction(.undelivered)
+                    }
+
+                    // ✅ Route to report if needed
+                    if reason == "Vehicle Breakdown" {
+                        navigateToRepairReport = true
+                    } else if reason == "Accident" {
+                        navigateToAccidentReport = true
+                    } else {
+                        dismiss()
                     }
                 }
             }
+            // ✅ Pre-fill driver and vehicle into report views
             .navigationDestination(isPresented: $navigateToRepairReport) {
-                RepairReportView()
-                    .onDisappear { dismiss() }
+                RepairReportView(
+                    prefilledDriverName: driverName,
+                    prefilledVehicleUnit: vehicleUnit
+                )
+                .onDisappear { dismiss() }
             }
             .navigationDestination(isPresented: $navigateToAccidentReport) {
-                AccidentReportView()
-                    .onDisappear { dismiss() }
+                AccidentReportView(
+                    prefilledDriverName: driverName,
+                    prefilledVehicleUnit: vehicleUnit
+                )
+                .onDisappear { dismiss() }
             }
-            .confirmationDialog(
-                "Start trip?",
-                isPresented: $showInTransitConfirm,
-                titleVisibility: .visible
-            ) {
+            .confirmationDialog("Start trip?", isPresented: $showInTransitConfirm, titleVisibility: .visible) {
                 Button("Yes, Start Trip") { onAction(.inTransit); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will mark the load as In Transit.")
             }
-            .confirmationDialog(
-                "Mark as Delivered?",
-                isPresented: $showDeliveredConfirm,
-                titleVisibility: .visible
-            ) {
+            .confirmationDialog("Mark as Delivered?", isPresented: $showDeliveredConfirm, titleVisibility: .visible) {
                 Button("Yes, Mark Delivered") { onAction(.delivered); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -817,7 +781,7 @@ struct LoadAcceptDeclineView: View {
 struct DeclineReasonSheet: View {
 
     @Environment(\.dismiss) var dismiss
-    let reasons: [String]
+    let context: DeclineContext
     @Binding var selectedReason: String
     var onConfirm: (String) -> Void
 
@@ -825,10 +789,8 @@ struct DeclineReasonSheet: View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(reasons, id: \.self) { reason in
-                        Button {
-                            selectedReason = reason
-                        } label: {
+                    ForEach(context.reasons, id: \.self) { reason in
+                        Button { selectedReason = reason } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(reason)
@@ -836,25 +798,23 @@ struct DeclineReasonSheet: View {
                                         .font(.subheadline)
                                     if reason == "Vehicle Breakdown" {
                                         Text("A repair report will be opened")
-                                            .font(.caption)
-                                            .foregroundColor(.orange)
+                                            .font(.caption).foregroundColor(.orange)
                                     } else if reason == "Accident" {
                                         Text("An accident report will be opened")
-                                            .font(.caption)
-                                            .foregroundColor(.red)
+                                            .font(.caption).foregroundColor(.red)
                                     }
                                 }
                                 Spacer()
                                 if selectedReason == reason {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.blue)
+                                    Image(systemName: "checkmark.circle.fill").foregroundColor(.blue)
                                 }
                             }
                             .padding(.vertical, 4)
                         }
                     }
                 } header: {
-                    Text("Why are you declining this load?")
+                    // ✅ Context-aware header
+                    Text(context.title)
                 }
 
                 if !selectedReason.isEmpty {
@@ -862,25 +822,27 @@ struct DeclineReasonSheet: View {
                         Button {
                             let reason = selectedReason
                             dismiss()
-                            // ✅ Small delay so sheet dismisses before navigation fires
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 onConfirm(reason)
                             }
                         } label: {
                             HStack {
-                                Image(systemName: "xmark.circle.fill")
-                                Text("Confirm Decline").fontWeight(.semibold)
+                                Image(systemName: context == .declining
+                                      ? "xmark.circle.fill"
+                                      : "exclamationmark.triangle.fill")
+                                // ✅ Context-aware button label
+                                Text(context.confirmLabel).fontWeight(.semibold)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                            .frame(maxWidth: .infinity).padding()
+                            // ✅ Context-aware button color
+                            .background(context.confirmColor)
+                            .foregroundColor(.white).cornerRadius(12)
                         }
                     }
                 }
             }
-            .navigationTitle("Decline Reason")
+            // ✅ Context-aware sheet title
+            .navigationTitle(context == .declining ? "Decline Reason" : "Could Not Deliver")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -909,12 +871,9 @@ struct DashboardButton: View {
 
     var body: some View {
         Text(title)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(color)
-            .foregroundColor(.white)
-            .font(.headline)
-            .cornerRadius(14)
+            .frame(maxWidth: .infinity).padding()
+            .background(color).foregroundColor(.white)
+            .font(.headline).cornerRadius(14)
     }
 }
 
