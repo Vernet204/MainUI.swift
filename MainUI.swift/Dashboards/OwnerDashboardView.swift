@@ -494,7 +494,7 @@ struct RevenueCard: View {
                 Text(title)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("$\(String(format: "%.0f", amount))")
+                Text(amount.asCompactCurrency)
                     .font(.title3)
                     .fontWeight(.bold)
                     .foregroundColor(color)
@@ -618,6 +618,19 @@ struct RecentLoadItem: Identifiable {
     var status: String
     var driver: String
     var createdAt: Date
+}
+
+extension Double {
+    var asCompactCurrency: String {
+        switch self {
+        case 1_000_000...:
+            return String(format: "$%.1fM", self / 1_000_000)
+        case 1_000...:
+            return String(format: "$%.1fK", self / 1_000)
+        default:
+            return String(format: "$%.0f", self)
+        }
+    }
 }
  
 #Preview {
