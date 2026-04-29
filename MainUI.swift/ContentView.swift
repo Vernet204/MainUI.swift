@@ -13,7 +13,6 @@ struct ContentView: View {
     var body: some View {
         Group {
             if authManager.isLoading {
-                // ✅ Splash while auth state is determined
                 VStack(spacing: 16) {
                     Image(systemName: "truck.box.fill")
                         .font(.system(size: 60))
@@ -30,9 +29,15 @@ struct ContentView: View {
                     RoleRouterView(role: user.role)
                         .environmentObject(authManager)
                         .environmentObject(appState)
-                        // ✅ Start Firestore listeners when logged in
-                        .onAppear { appState.startListeningToReports() }
-                        .onDisappear { appState.stopAllListeners() }
+                        .onAppear {
+                            appState.startListeningToReports()
+                            // ✅ Request notification permission and save FCM token
+                            NotificationManager.shared.requestPermissionAndRegister()
+                            NotificationManager.shared.saveFCMToken()
+                        }
+                        .onDisappear {
+                            appState.stopAllListeners()
+                        }
                 }
             } else {
                 NavigationStack {

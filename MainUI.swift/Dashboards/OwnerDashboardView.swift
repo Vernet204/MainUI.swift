@@ -185,6 +185,13 @@ struct OwnerDashboardView: View {
                                     color: .purple
                                 )
                             }
+                            NavigationLink(destination: PerformanceView()) {
+                                DashboardCard(
+                                    title: "Performance",
+                                    icon: "chart.bar.fill",
+                                    color: .cyan
+                                )
+                            }
                             NavigationLink(destination: LoadHistoryView()) {
                                 DashboardCard(
                                     title: "Load History",
@@ -360,7 +367,7 @@ struct OwnerDashboardView: View {
                     monthlyRevenue = monthly
                     topDriver      = top
                     recentLoads    = recent.sorted { $0.createdAt > $1.createdAt }
-                    // ✅ Write only to loadAlerts — other alert arrays untouched
+                    //  Write only to loadAlerts — other alert arrays untouched
                     loadAlerts     = alerts
                     isLoading      = false
                 }
@@ -398,7 +405,7 @@ struct OwnerDashboardView: View {
  
                 DispatchQueue.main.async {
                     vehiclesInMaintenance = maintenance
-                    // ✅ Write only to vehicleAlerts — other alert arrays untouched
+                    //  Write only to vehicleAlerts — other alert arrays untouched
                     vehicleAlerts = alerts
                 }
             }
@@ -434,7 +441,7 @@ struct OwnerDashboardView: View {
  
                 DispatchQueue.main.async {
                     openReports  = open
-                    // ✅ Write only to reportAlerts — other alert arrays untouched
+                    //  Write only to reportAlerts — other alert arrays untouched
                     reportAlerts = alerts
                 }
             }

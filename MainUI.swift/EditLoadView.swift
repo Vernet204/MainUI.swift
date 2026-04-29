@@ -30,7 +30,7 @@ struct EditLoadView: View {
     @State private var errorMessage = ""
     @State private var showUnassignConfirm = false
 
-    // ✅ Full status list for dispatcher editing
+    //  Full status list for dispatcher editing
     let statuses = ["Unassigned", "Assigned", "Accepted", "Declined", "In Transit", "Delivered"]
 
     var body: some View {
@@ -77,7 +77,7 @@ struct EditLoadView: View {
                     .pickerStyle(.menu)
                 }
 
-                // ✅ Driver Assignment
+                //  Driver Assignment
                 Section("Driver Assignment") {
                     if assignedDriver.isEmpty {
                         Text("No driver assigned")
@@ -95,7 +95,7 @@ struct EditLoadView: View {
                         }
                     }
 
-                    // ✅ Switch driver
+                    //  Switch driver
                     Picker("Switch Driver", selection: $assignedDriver) {
                         Text("Unassigned").tag("")
                         ForEach(availableDrivers) { driver in
@@ -216,7 +216,7 @@ struct EditLoadView: View {
         isSaving = true
         errorMessage = ""
 
-        // ✅ Auto-correct status based on driver assignment
+        //  Auto-correct status based on driver assignment
         let finalStatus: String
         if assignedDriver.isEmpty {
             finalStatus = "Unassigned"

@@ -10,7 +10,9 @@ import FirebaseFirestore
 struct CreateLoadView: View {
 
     @Environment(\.dismiss) private var dismiss
-
+    @EnvironmentObject var authManager: AuthManager
+    
+    @State private var clientEmail = ""
     @State private var loadID = ""
     @State private var pickup = ""
     @State private var delivery = ""
@@ -22,11 +24,10 @@ struct CreateLoadView: View {
     @State private var specialInstructions = ""
     @State private var errorMessage = ""
     @State private var isCreating = false
-    // Add to state variables:
     @State private var clients: [ClientOption] = []
     @State private var selectedClient: ClientOption? = nil
     @State private var showAddClient = false
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -51,7 +52,8 @@ struct CreateLoadView: View {
                                 .textFieldStyle(.roundedBorder)
                         }
                     }
-                    
+
+                    // CLIENT & BROKER
                     FormCard(title: "🏢 Client & Broker") {
                         VStack(spacing: 12) {
                             Picker("Select Client", selection: $selectedClient) {
@@ -63,6 +65,15 @@ struct CreateLoadView: View {
                             }
                             .pickerStyle(.menu)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                            //  Email field appears when a client is selected
+                            if selectedClient != nil {
+                                TextField("Client Email (for notifications)", text: $clientEmail)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.caption)
+                            }
 
                             if let client = selectedClient {
                                 HStack {
@@ -80,7 +91,6 @@ struct CreateLoadView: View {
                                 .padding(.vertical, 4)
                             }
 
-                            // ✅ Add new client button
                             Button {
                                 showAddClient = true
                             } label: {
@@ -97,6 +107,7 @@ struct CreateLoadView: View {
                             }
                         }
                     }
+
                     // PICKUP
                     FormCard(title: "📍 Pickup") {
                         VStack(spacing: 12) {
@@ -142,7 +153,7 @@ struct CreateLoadView: View {
                         .textFieldStyle(.roundedBorder)
                     }
 
-                    // ✅ Duration preview
+                    //  Duration preview
                     if !pickup.isEmpty && !delivery.isEmpty {
                         HStack {
                             Image(systemName: "clock.fill")
@@ -188,19 +199,22 @@ struct CreateLoadView: View {
                 .padding()
             }
             .navigationTitle("Create Load")
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("Close") { dismiss() }
-                                    .disabled(isCreating)
-                            }
-                        }
-                        .onAppear { fetchClients() }
-                        .sheet(isPresented: $showAddClient, onDismiss: {
-                // ✅ Refresh client list after adding
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .disabled(isCreating)
+                }
+            }
+            .onAppear { fetchClients() }
+
+            .onChange(of: selectedClient) { client in
+                clientEmail = ""
+                if let id = client?.id { fetchClientEmail(clientID: id) }
+            }
+            .sheet(isPresented: $showAddClient, onDismiss: {
                 fetchClients()
             }) {
                 QuickAddClientView { newClient in
-                    // ✅ Auto-select the newly added client
                     selectedClient = ClientOption(
                         id: newClient.id,
                         companyName: newClient.companyName,
@@ -221,7 +235,7 @@ struct CreateLoadView: View {
         return "\(hours)h \(minutes)m"
     }
 
-    
+    // MARK: - Fetch Clients
     func fetchClients() {
         Firestore.firestore()
             .collection("clients")
@@ -239,7 +253,20 @@ struct CreateLoadView: View {
                 }
             }
     }
-    
+
+    // MARK: - Fetch Client Email
+    //  Auto-fills email when a client is selected from the picker
+    func fetchClientEmail(clientID: String) {
+        Firestore.firestore()
+            .collection("clients")
+            .document(clientID)
+            .getDocument { snapshot, _ in
+                if let email = snapshot?.data()?["email"] as? String {
+                    DispatchQueue.main.async { clientEmail = email }
+                }
+            }
+    }
+
     // MARK: - Create Load
     func createLoad() {
         guard !pickup.isEmpty else { errorMessage = "Enter pickup location."; return }
@@ -268,26 +295,27 @@ struct CreateLoadView: View {
                     }
                     return
                 }
-
+                
                 Firestore.firestore().collection("loads").addDocument(data: [
-                    "loadID": finalLoadID,
-                    "pickupLocation": pickup.trimmingCharacters(in: .whitespaces),
-                    "deliveryLocation": delivery.trimmingCharacters(in: .whitespaces),
-                    "pickupDateTime": Timestamp(date: pickupDateTime),
-                    "deliveryDateTime": Timestamp(date: deliveryDateTime),
-                    "weight": weight,
-                    "rate": rate,
-                    "commodity": commodity,
+                    "loadID":             finalLoadID,
+                    "pickupLocation":     pickup.trimmingCharacters(in: .whitespaces),
+                    "deliveryLocation":   delivery.trimmingCharacters(in: .whitespaces),
+                    "pickupDateTime":     Timestamp(date: pickupDateTime),
+                    "deliveryDateTime":   Timestamp(date: deliveryDateTime),
+                    "weight":             weight,
+                    "rate":               rate,
+                    "commodity":          commodity,
                     "specialInstructions": specialInstructions,
-                    "status": "Unassigned",
-                    "assignedDriver": "",
-                    "assignedDriverID": "",
-                    "assignedVehicle": "",
-                    // ✅ Client & Broker
-                    "clientID": selectedClient?.id ?? "",
-                    "clientName": selectedClient?.companyName ?? "",
-                    "brokerName": selectedClient?.brokerName ?? "",
-                    "createdAt": Timestamp()
+                    "status":             "Unassigned",
+                    "assignedDriver":     "",
+                    "assignedDriverID":   "",
+                    "assignedVehicle":    "",
+                    "clientID":           selectedClient?.id ?? "",
+                    "clientName":         selectedClient?.companyName ?? "",
+                    "brokerName":         selectedClient?.brokerName ?? "",
+                    "clientEmail":        clientEmail,
+                    "createdBy":          authManager.appUser?.name ?? "Dispatcher",
+                    "createdAt":          Timestamp()
                 ]) { error in
                     DispatchQueue.main.async {
                         isCreating = false
@@ -323,9 +351,9 @@ struct FormCard<Content: View>: View {
         .cornerRadius(14)
         .padding(.horizontal)
     }
-    
 }
-// Add model at bottom of file:
+
+// MARK: - Client Option Model
 struct ClientOption: Identifiable, Hashable {
     let id: String
     var companyName: String
@@ -413,7 +441,6 @@ struct QuickAddClientView: View {
         isSaving = true
         errorMessage = ""
 
-        // ✅ Duplicate check
         Firestore.firestore()
             .collection("clients")
             .whereField("companyName", isEqualTo: companyName)
@@ -426,7 +453,6 @@ struct QuickAddClientView: View {
                     return
                 }
 
-                // ✅ Save to Firestore
                 var ref: DocumentReference?
                 ref = Firestore.firestore()
                     .collection("clients")
@@ -442,7 +468,6 @@ struct QuickAddClientView: View {
                             if let error = error {
                                 errorMessage = error.localizedDescription
                             } else if let id = ref?.documentID {
-                                // ✅ Pass new client back to CreateLoadView
                                 onAdd(ClientOption(
                                     id: id,
                                     companyName: companyName,

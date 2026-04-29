@@ -90,7 +90,7 @@ struct LoginView: View {
         isLoading = true
         showError = false
 
-        // ✅ Firebase Auth — AuthManager handles routing via listener
+        //  Firebase Auth — AuthManager handles routing via listener
         Auth.auth().signIn(withEmail: email, password: password) { result, error in
             DispatchQueue.main.async {
                 isLoading = false
@@ -99,8 +99,7 @@ struct LoginView: View {
                     errorMessage = "Login failed. Check your credentials."
                     showError = true
                 }
-                // ✅ On success AuthManager's listener fires automatically
-                // and ContentView re-routes based on appUser.role
+                
             }
         }
     }

@@ -11,7 +11,7 @@ struct RoleRouterView: View {
     var role: String
 
     var body: some View {
-        // ✅ Always lowercased to handle any capitalization from Firestore
+        //  Always lowercased to handle any capitalization from Firestore
         switch role.lowercased() {
         case "owner":
             OwnerDashboardView()

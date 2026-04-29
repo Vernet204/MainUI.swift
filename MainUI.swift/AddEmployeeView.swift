@@ -20,7 +20,7 @@ struct AddEmployeeView: View {
     @State private var selectedRole = "Driver"
     @State private var tempPassword = ""
     @State private var errorMessage = ""
-    @State private var isCreating = false  // ✅ was missing
+    @State private var isCreating = false
 
     let roles = ["Driver", "Dispatcher"]
     var onAdd: (Employee) -> Void
@@ -61,7 +61,7 @@ struct AddEmployeeView: View {
                     }
                 }
 
-                // ✅ Loading indicator while creating
+                //  Loading indicator while creating
                 if isCreating {
                     Section {
                         HStack {

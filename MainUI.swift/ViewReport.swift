@@ -30,7 +30,7 @@ struct ViewReport: View {
                 } else {
                     ForEach(filteredReports.sorted(by: { $0.date > $1.date })) { report in
 
-                        // ✅ Tap to open edit sheet
+                        //  Tap to open edit sheet
                         Button {
                             selectedReport = report
                         } label: {
@@ -68,7 +68,7 @@ struct ViewReport: View {
 
                                     Spacer()
 
-                                    // ✅ Status badge
+                                    //  Status badge
                                     if !report.status.isEmpty && report.status != "submitted" {
                                         Text(report.status)
                                             .font(.caption2)
@@ -80,7 +80,7 @@ struct ViewReport: View {
                                             .clipShape(Capsule())
                                     }
 
-                                    // ✅ Severity badge if applicable
+                                    //  Severity badge if applicable
                                     if !report.severity.isEmpty {
                                         Text(report.severity)
                                             .font(.caption2)
@@ -107,7 +107,7 @@ struct ViewReport: View {
         }
         .navigationTitle("Reports")
         .onAppear { fetchReports() }
-        // ✅ Edit sheet
+        //  Edit sheet
         .sheet(item: $selectedReport) { report in
             ReportEditView(report: report)
         }

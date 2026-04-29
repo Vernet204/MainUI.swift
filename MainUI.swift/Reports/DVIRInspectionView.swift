@@ -74,7 +74,7 @@ struct DVIRInspectionView: View {
                         )
                         .lineLimit(3...6)
 
-                        // ✅ Inform driver a maintenance record will be auto-created
+                        //  Inform driver a maintenance record will be auto-created
                         HStack(spacing: 6) {
                             Image(systemName: "wrench.fill")
                                 .foregroundColor(.orange)
@@ -195,7 +195,7 @@ struct DVIRInspectionView: View {
                 }
                 self.updateVehicleStatus(vehicle: vehicle, driver: driver)
 
-                // ✅ Auto-create maintenance record when defects found
+                //  Auto-create maintenance record when defects found
                 if self.defectsFound {
                     self.createMaintenanceRecord(
                         vehicle: vehicle,
@@ -226,7 +226,7 @@ struct DVIRInspectionView: View {
         }
     }
 
-    // ✅ Auto-create a maintenance record linked to the DVIR report
+    //  Auto-create a maintenance record linked to the DVIR report
     func createMaintenanceRecord(
         vehicle: ReportVehicle,
         driver: ReportDriver,
@@ -248,7 +248,7 @@ struct DVIRInspectionView: View {
                 "mileageAtService": odometer,
                 "technicianName": "",
                 "notes": "Auto-created from DVIR \(reportNumber) by \(driver.name)",
-                // ✅ Traceability: link back to originating DVIR report
+                //  Traceability: link back to originating DVIR report
                 "sourceReportNumber": reportNumber,
                 "reportedBy": driver.name,
                 "createdAt": Timestamp()

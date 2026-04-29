@@ -11,13 +11,14 @@ import FirebaseFirestore
 
 struct MaintenanceView: View {
 
+    @State private var allVehicleUnits: [String] = []
     @State private var records: [MaintenanceRecord] = []
     @State private var isLoading = true
     @State private var showAddMaintenance = false
     @State private var selectedRecord: MaintenanceRecord? = nil
     @State private var listener: ListenerRegistration? = nil
     @State private var filterStatus = "All"
-    // ✅ Vehicle filter
+    //  Vehicle filter
     @State private var filterVehicle = "All Vehicles"
 
     let filters = ["All", "Scheduled", "In Progress", "Due Soon", "Overdue", "Completed"]
@@ -27,7 +28,7 @@ struct MaintenanceView: View {
     var dueSoonCount: Int  { records.filter { $0.isDueSoon }.count }
     var scheduledCount: Int { records.filter { $0.status == "Scheduled" }.count }
 
-    // ✅ Total estimated cost across all non-completed records
+    //  Total estimated cost across all non-completed records
     var totalEstimatedCost: Double {
         records
             .filter { $0.status != "Completed" }
@@ -35,7 +36,7 @@ struct MaintenanceView: View {
             .reduce(0, +)
     }
 
-    // ✅ Total actual cost from completed records
+    // Total actual cost from completed records
     var totalActualCost: Double {
         records
             .filter { $0.status == "Completed" }
@@ -43,16 +44,15 @@ struct MaintenanceView: View {
             .reduce(0, +)
     }
 
-    // ✅ Unique vehicle units for the vehicle filter picker
+    //  Unique vehicle units for the vehicle filter picker
     var vehicleOptions: [String] {
-        let units = Set(records.map { $0.vehicleUnit }).filter { !$0.isEmpty }.sorted()
-        return ["All Vehicles"] + units
+        ["All Vehicles"] + allVehicleUnits
     }
 
     var filteredRecords: [MaintenanceRecord] {
         var result = records
 
-        // ✅ Apply vehicle filter first
+        //  Apply vehicle filter first
         if filterVehicle != "All Vehicles" {
             result = result.filter { $0.vehicleUnit == filterVehicle }
         }
@@ -106,7 +106,7 @@ struct MaintenanceView: View {
                 }
             }
 
-            // ✅ Vehicle filter picker
+            //  Vehicle filter picker
             Section {
                 Picker("Filter by Vehicle", selection: $filterVehicle) {
                     ForEach(vehicleOptions, id: \.self) { Text($0) }
@@ -175,7 +175,10 @@ struct MaintenanceView: View {
                 }
             }
         }
-        .onAppear { startListening() }
+        .onAppear {
+            startListening()
+            fetchAllVehicles()
+        }
         .onDisappear {
             listener?.remove()
             listener = nil
@@ -247,6 +250,21 @@ struct MaintenanceView: View {
             Firestore.firestore().collection("maintenance").document(record.id).delete()
         }
     }
+
+    //  Fetches all vehicles for the filter picker
+    func fetchAllVehicles() {
+        Firestore.firestore()
+            .collection("vehicles")
+            .getDocuments { snapshot, _ in
+                guard let docs = snapshot?.documents else { return }
+                DispatchQueue.main.async {
+                    allVehicleUnits = docs
+                        .compactMap { $0.data()["unitNumber"] as? String }
+                        .filter { !$0.isEmpty }
+                        .sorted()
+                }
+            }
+    }
 }
 
 // MARK: - Maintenance Record Row
@@ -294,7 +312,7 @@ struct MaintenanceRecordRow: View {
                 }
             }
 
-            // ✅ Source report badge — shows where this record came from
+            // Source report badge — shows where this record came from
             if !record.sourceReportNumber.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "link")
@@ -468,8 +486,10 @@ struct AddMaintenanceView: View {
         }
     }
 
+    //  Fetches vehicles for the picker inside AddMaintenanceView
     func fetchVehicles() {
-        Firestore.firestore().collection("vehicles")
+        Firestore.firestore()
+            .collection("vehicles")
             .getDocuments { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
                 DispatchQueue.main.async {
@@ -592,7 +612,7 @@ struct MaintenanceDetailView: View {
                     )
                 }
 
-                // ✅ Show DVIR traceability if this record was auto-created
+                //  Show DVIR traceability if this record was auto-created
                 if !record.sourceReportNumber.isEmpty {
                     Section("Source") {
                         DetailRow(label: "DVIR Report", value: record.sourceReportNumber)
@@ -675,7 +695,7 @@ struct MarkCompleteView: View {
     @State private var actualCost = ""
     @State private var completionNotes = ""
     @State private var completedDate = Date()
-    // ✅ Option to restore vehicle to Active on completion
+    //  Option to restore vehicle to Active on completion
     @State private var restoreVehicle = true
 
     var body: some View {
@@ -693,7 +713,7 @@ struct MarkCompleteView: View {
                         .lineLimit(3...6)
                 }
 
-                // ✅ Restore vehicle toggle
+                // Restore vehicle toggle
                 Section {
                     Toggle("Restore vehicle to Active", isOn: $restoreVehicle)
                 } footer: {
@@ -741,7 +761,7 @@ struct MarkCompleteView: View {
                     return
                 }
 
-                // ✅ Restore vehicle to Active if toggled on
+                //  Restore vehicle to Active if toggled on
                 if self.restoreVehicle {
                     Firestore.firestore()
                         .collection("vehicles")
@@ -776,7 +796,7 @@ struct MaintenanceRecord: Identifiable {
     var mileageAtService: String
     var technicianName: String
     var notes: String
-    // ✅ Traceability fields
+    //  Traceability fields
     var sourceReportNumber: String
     var reportedBy: String
 
@@ -789,7 +809,7 @@ struct MaintenanceRecord: Identifiable {
         return Calendar.current.dateComponents([.day], from: dueDate, to: Date()).day ?? 0
     }
 
-    // ✅ Due within 7 days but not yet overdue
+    //  Due within 7 days but not yet overdue
     var isDueSoon: Bool {
         guard status != "Completed" && !isOverdue else { return false }
         let days = Calendar.current.dateComponents([.day], from: Date(), to: dueDate).day ?? 999

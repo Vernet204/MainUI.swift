@@ -16,7 +16,7 @@ struct DispatcherLoadBoardView: View {
     @State private var listener: ListenerRegistration? = nil
     @State private var filterStatus = "All"
 
-    // ✅ Delivered excluded — lives in Load History
+    //  Delivered excluded — lives in Load History
     let filters = ["All", "Unassigned", "Assigned", "Accepted", "Declined", "In Transit"]
 
     var body: some View {
@@ -203,7 +203,7 @@ struct DispatcherLoadBoardView: View {
     }
 
     // MARK: - Status Color
-    // ✅ Only defined once with all statuses
+    //  Only defined once with all statuses
     func statusColor(_ status: String) -> Color {
         switch status {
         case "Unassigned": return .orange
@@ -257,7 +257,7 @@ struct DispatcherLoadBoardView: View {
 }
 
 // MARK: - Mini Stat Card
-// ✅ Outside the struct so it's accessible everywhere
+
 struct MiniStatCard: View {
     let title: String
     let value: String

@@ -106,7 +106,7 @@ struct DispatcherDashboardView: View {
                             .padding(.horizontal)
 
                         HStack(spacing: 12) {
-                            NavigationLink(destination: CreateLoadView()) {
+                            NavigationLink(destination: CreateLoadView().environmentObject(authManager)) {
                                 QuickActionButton(
                                     title: "Create Load",
                                     icon: "plus.circle.fill",
@@ -247,7 +247,7 @@ struct DispatcherDashboardView: View {
                     switch status {
                     case "Unassigned":
                         unassigned += 1
-                        // ✅ Alert if pickup is within 24 hours
+                        // Alert if pickup is within 24 hours
                         if let pt = pickupDT, pt.timeIntervalSinceNow < 86400 && pt > Date() {
                             alerts.append(DispatcherAlert(
                                 id: doc.documentID,
@@ -308,7 +308,7 @@ struct DispatcherDashboardView: View {
 
                 let total = docs.count
 
-                // ✅ Available = drivers not currently In Transit or Assigned
+                // Available = drivers not currently In Transit or Assigned
                 Firestore.firestore()
                     .collection("loads")
                     .whereField("status", in: ["Assigned", "Accepted", "In Transit"])

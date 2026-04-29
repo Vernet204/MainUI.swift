@@ -161,7 +161,7 @@ struct ClienteleView: View {
 
                     group.enter()
 
-                    // ✅ Fetch delivered loads for this client
+                    //  Fetch delivered loads for this client
                     Firestore.firestore()
                         .collection("loads")
                         .whereField("clientID", isEqualTo: doc.documentID)
@@ -334,7 +334,7 @@ struct AddClientView: View {
         isSaving = true
         errorMessage = ""
 
-        // ✅ Duplicate check
+        //  Duplicate check
         Firestore.firestore()
             .collection("clients")
             .whereField("companyName", isEqualTo: companyName)

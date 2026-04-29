@@ -9,7 +9,7 @@ import FirebaseFirestore
 
 struct RepairReportView: View {
 
-    // ✅ Pre-fill support — passed when navigating from Could Not Deliver / Vehicle Breakdown
+    //  Pre-fill support — passed when navigating from Could Not Deliver / Vehicle Breakdown
     var prefilledDriverName: String = ""
     var prefilledVehicleUnit: String = ""
 
@@ -111,7 +111,7 @@ struct RepairReportView: View {
                         ReportDriver(id: $0.documentID, name: $0.data()["name"] as? String ?? "")
                     }.filter { !$0.name.isEmpty }
 
-                    // ✅ Pre-select driver if name was passed in
+                    //  Pre-select driver if name was passed in
                     if !prefilledDriverName.isEmpty {
                         selectedDriver = drivers.first { $0.name == prefilledDriverName }
                     }
@@ -134,7 +134,7 @@ struct RepairReportView: View {
                         )
                     }.filter { !$0.unitNumber.isEmpty }
 
-                    // ✅ Pre-select vehicle if unit number was passed in
+                    //  Pre-select vehicle if unit number was passed in
                     if !prefilledVehicleUnit.isEmpty {
                         selectedVehicle = vehicles.first { $0.unitNumber == prefilledVehicleUnit }
                     }

@@ -93,7 +93,7 @@ struct DriverScheduleView: View {
                                     )
                                     .clipShape(Circle())
 
-                                // ✅ Dot if loads exist on this day
+                                //  Dot if loads exist on this day
                                 Circle()
                                     .fill(loadsExistOn(day) ? Color.orange : Color.clear)
                                     .frame(width: 5, height: 5)
@@ -104,7 +104,7 @@ struct DriverScheduleView: View {
                 }
                 .padding(.horizontal, 8)
 
-                // ✅ Load filter for availability
+                //  Load filter for availability
                 Button {
                     showFilterSheet = true
                 } label: {
@@ -163,7 +163,7 @@ struct DriverScheduleView: View {
                                 filterPickup: filterPickup,
                                 filterDelivery: filterDelivery
                             ) {
-                                // ✅ Tap to assign
+                                //  Tap to assign
                                 selectedDriver = ScheduleDriver(
                                     id: schedule.id,
                                     name: schedule.driverName,
@@ -220,7 +220,7 @@ struct DriverScheduleView: View {
             }
         }
 
-        // ✅ When filtering, sort available drivers to top
+        //  When filtering, sort available drivers to top
         return schedules.sorted { a, b in
             let aAvailable = isDriverAvailable(a, pickup: filterPickup, delivery: filterDelivery)
             let bAvailable = isDriverAvailable(b, pickup: filterPickup, delivery: filterDelivery)
@@ -279,7 +279,7 @@ struct DriverScheduleView: View {
     func schedulePriority(_ status: String) -> Int {
         switch status {
         case "In Transit": return 0
-        case "Accepted":   return 1  // ✅ added
+        case "Accepted":   return 1
         case "Assigned":   return 2
         case "Available":  return 3
         default:           return 4
@@ -315,7 +315,7 @@ struct DriverScheduleView: View {
                     // In fetchSchedules() — update the whereField to include all active statuses
                     db.collection("loads")
                         .whereField("assignedDriver", isEqualTo: name)
-                        .whereField("status", in: ["Assigned", "Accepted", "In Transit"]) // ✅ added Accepted
+                        .whereField("status", in: ["Assigned", "Accepted", "In Transit"])
                         .getDocuments { loadSnapshot, _ in
                             let loadDocs = loadSnapshot?.documents ?? []
 
@@ -345,7 +345,7 @@ struct DriverScheduleView: View {
                             if markedLoads.contains(where: { $0.status == "In Transit" }) {
                                 overallStatus = "In Transit"
                             } else if markedLoads.contains(where: { $0.status == "Accepted" }) {
-                                overallStatus = "Accepted"   // ✅ added
+                                overallStatus = "Accepted"
                             } else if !markedLoads.isEmpty {
                                 overallStatus = "Assigned"
                             } else {
@@ -422,7 +422,7 @@ struct DriverScheduleCard: View {
 
                 Spacer()
 
-                // ✅ Availability badge
+                //  Availability badge
                 if isFiltering {
                     Text(isAvailableForFilter ? "Available" : "Unavailable")
                         .font(.caption)
@@ -464,7 +464,7 @@ struct DriverScheduleCard: View {
                 }
                 .cornerRadius(8)
 
-                // ✅ Filter window overlay
+                //  Filter window overlay
                 if isFiltering {
                     GeometryReader { geo in
                         let totalWidth = geo.size.width
@@ -480,7 +480,7 @@ struct DriverScheduleCard: View {
                     .frame(height: 36)
                 }
 
-                // ✅ Load bars
+                //  Load bars
                 if !schedule.loads.isEmpty {
                     GeometryReader { geo in
                         let totalWidth = geo.size.width
@@ -512,7 +512,7 @@ struct DriverScheduleCard: View {
                         .padding(.horizontal, 8)
                 }
 
-                // ✅ Today line
+                //  Today line
                 GeometryReader { geo in
                     let totalWidth = geo.size.width
                     let todayX = xPosition(for: Date(), totalWidth: totalWidth)
@@ -577,7 +577,7 @@ struct DriverScheduleCard: View {
                 }
             }
 
-            // ✅ Assign button
+            //  Assign button
             Button {
                 onTap()
             } label: {
@@ -637,7 +637,7 @@ struct DriverScheduleCard: View {
         switch status {
         case "Available":  return .green
         case "Assigned":   return .blue
-        case "Accepted":   return .green  // ✅ added
+        case "Accepted":   return .green  
         case "In Transit": return .orange
         default:           return .gray
         }

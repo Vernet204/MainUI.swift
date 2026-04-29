@@ -90,7 +90,7 @@ struct FirstTimePasswordView: View {
 
         isLoading = true
 
-        // ✅ Step 1 — Update password in Firebase Auth
+        //  Step 1 — Update password in Firebase Auth
         Auth.auth().currentUser?.updatePassword(to: newPassword) { error in
             if let error = error {
                 DispatchQueue.main.async {
@@ -100,7 +100,7 @@ struct FirstTimePasswordView: View {
                 return
             }
 
-            // ✅ Step 2 — Update firstLogin to false in Firestore
+            //  Step 2 — Update firstLogin to false in Firestore
             guard let uid = Auth.auth().currentUser?.uid else { return }
 
             Firestore.firestore()
@@ -112,7 +112,7 @@ struct FirstTimePasswordView: View {
                         print("Firestore update error: \(error.localizedDescription)")
                     }
 
-                    // ✅ Step 3 — Re-fetch user profile so AuthManager
+                    //  Step 3 — Re-fetch user profile so AuthManager
                     // updates appUser and routes to the correct dashboard
                     DispatchQueue.main.async {
                         isLoading = false

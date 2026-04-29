@@ -10,6 +10,7 @@ import FirebaseFirestore
 struct AssignLoadView: View {
 
     var preselectedDriver: ScheduleDriver? = nil
+    @EnvironmentObject var authManager: AuthManager
     @State private var loads: [ScheduleLoad] = []
     @State private var drivers: [ScheduleDriver] = []
     @State private var selectedLoad: ScheduleLoad? = nil
@@ -20,6 +21,7 @@ struct AssignLoadView: View {
     @State private var conflictMessage = ""
     @State private var isLoading = true
     @State private var listener: ListenerRegistration? = nil
+    
 
     var body: some View {
         List {
@@ -60,7 +62,7 @@ struct AssignLoadView: View {
                                         .foregroundColor(.primary)
                                     Spacer()
 
-                                    // ✅ Show Declined badge if applicable
+                                    //  Show Declined badge if applicable
                                     if load.status == "Declined" {
                                         Text("Declined")
                                             .font(.caption)
@@ -328,7 +330,7 @@ struct AssignLoadView: View {
     }
 
     // MARK: - Real-time Listener
-    // ✅ Fetches both Unassigned AND Declined so dispatcher can reassign
+    //  Fetches both Unassigned AND Declined so dispatcher can reassign
     func startListening() {
         isLoading = true
         listener?.remove()
@@ -383,7 +385,7 @@ struct AssignLoadView: View {
 
                     group.enter()
 
-                    // ✅ Include all active statuses
+                    //  Include all active statuses
                     db.collection("loads")
                         .whereField("assignedDriver", isEqualTo: name)
                         .whereField("status", in: ["Assigned", "Accepted", "In Transit"])
@@ -522,19 +524,22 @@ struct AssignLoadView: View {
     }
 
     // MARK: - Assign Load
+    
     func assignLoad() {
         guard let load = selectedLoad,
               let driver = selectedDriver else { return }
 
-        // ✅ Build update data as typed dict to avoid FieldValue type mismatch
+
+        let dispatcherName = authManager.appUser?.name ?? "Dispatcher"
+
         let updateData: [String: Any] = [
-            "assignedDriver": driver.name,
-            "assignedDriverID": driver.id,
-            "assignedVehicle": driver.vehicleUnit,
-            "status": "Assigned",
-            "assignedAt": Timestamp(),
-            "declinedBy": ""
-            // ✅ Removed FieldValue.delete() — just clear the field with ""
+            "assignedDriver":    driver.name,
+            "assignedDriverID":  driver.id,
+            "assignedVehicle":   driver.vehicleUnit,
+            "status":            "Assigned",
+            "assignedAt":        Timestamp(),
+            "assignedBy":        dispatcherName,
+            "declinedBy":        ""
         ]
 
         Firestore.firestore()
@@ -586,7 +591,7 @@ struct ScheduleLoad: Identifiable {
     var specialInstructions: String
     var rate: String
     var weight: String
-    var status: String = "Unassigned"  // ✅ added
+    var status: String = "Unassigned"  
 
     var duration: String {
         let diff = deliveryDateTime.timeIntervalSince(pickupDateTime)

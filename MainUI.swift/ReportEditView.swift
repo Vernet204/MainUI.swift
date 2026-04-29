@@ -190,7 +190,7 @@ struct ReportEditView: View {
     }
 
     func restoreVehicle() {
-        // ✅ Find vehicle by unit number and restore to Active
+        //  Find vehicle by unit number and restore to Active
         Firestore.firestore()
             .collection("vehicles")
             .whereField("unitNumber", isEqualTo: report.vehicleNumber)
@@ -210,7 +210,7 @@ struct ReportEditView: View {
     func saveChanges() {
         isSaving = true
 
-        // ✅ Find the report document and update it
+        //  Find the report document and update it
         Firestore.firestore()
             .collection("reports")
             .whereField("reportNumber", isEqualTo: report.reportNumber)

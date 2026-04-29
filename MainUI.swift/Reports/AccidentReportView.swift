@@ -6,7 +6,7 @@ import CoreLocation
  
 struct AccidentReportView: View {
  
-    // ✅ Pre-fill support — passed when navigating from Could Not Deliver / Accident
+    //  Pre-fill support — passed when navigating from Could Not Deliver / Accident
     var prefilledDriverName: String = ""
     var prefilledVehicleUnit: String = ""
  
@@ -178,7 +178,7 @@ struct AccidentReportView: View {
                         ReportDriver(id: $0.documentID, name: $0.data()["name"] as? String ?? "")
                     }.filter { !$0.name.isEmpty }
  
-                    // ✅ Pre-select driver if name was passed in
+                    //  Pre-select driver if name was passed in
                     if !prefilledDriverName.isEmpty {
                         selectedDriver = drivers.first { $0.name == prefilledDriverName }
                     }
@@ -201,7 +201,7 @@ struct AccidentReportView: View {
                         )
                     }.filter { !$0.unitNumber.isEmpty }
  
-                    // ✅ Pre-select vehicle if unit was passed in
+                    //  Pre-select vehicle if unit was passed in
                     if !prefilledVehicleUnit.isEmpty {
                         selectedVehicle = vehicles.first { $0.unitNumber == prefilledVehicleUnit }
                     }

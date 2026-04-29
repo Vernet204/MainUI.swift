@@ -464,17 +464,16 @@ struct DriverLoadBoardView: View {
                 "declinedAt": Timestamp(),
                 "declinedBy": driverName
             ] as [String: Any])
-            // ✅ Do NOT clear selectedLoad here — sheet manages its own dismissal
-            // so navigation to report views can fire first
+            
 
         case .undelivered:
-            // ✅ Keeps driver assigned so there's a record, sets status for dispatcher
+            // Keeps driver assigned so there's a record, sets status for dispatcher
             db.collection("loads").document(load.id).updateData([
                 "status": "Undelivered",
                 "undeliveredAt": Timestamp(),
                 "undeliveredBy": driverName
             ] as [String: Any])
-            // ✅ Do NOT clear selectedLoad — navigation to report fires first
+            // Do NOT clear selectedLoad — navigation to report fires first
 
         case .inTransit:
             db.collection("loads").document(load.id).updateData([
@@ -565,7 +564,7 @@ struct LoadAcceptDeclineView: View {
 
     @Environment(\.dismiss) var dismiss
     let load: DriverLoad
-    // ✅ Pre-fill info passed from DriverLoadBoardView
+    //  Pre-fill info passed from DriverLoadBoardView
     let driverName: String
     let vehicleUnit: String
     var onAction: (LoadAction) -> Void
@@ -576,7 +575,7 @@ struct LoadAcceptDeclineView: View {
     @State private var selectedDeclineReason = ""
     @State private var navigateToRepairReport = false
     @State private var navigateToAccidentReport = false
-    // ✅ Track which context opened the reason sheet
+    //  Track which context opened the reason sheet
     @State private var declineContext: DeclineContext = .declining
 
     var body: some View {
@@ -723,20 +722,20 @@ struct LoadAcceptDeclineView: View {
                     Button("Back") { dismiss() }
                 }
             }
-            // ✅ Single sheet — context controls copy, reasons, and Firestore action
+            //  Single sheet — context controls copy, reasons, and Firestore action
             .sheet(isPresented: $showDeclineReasonSheet) {
                 DeclineReasonSheet(
                     context: declineContext,
                     selectedReason: $selectedDeclineReason
                 ) { reason in
-                    // ✅ Fire correct Firestore action based on context
+                    //  Fire correct Firestore action based on context
                     if declineContext == .declining {
                         onAction(.decline)
                     } else {
                         onAction(.undelivered)
                     }
 
-                    // ✅ Route to report if needed
+                    //  Route to report if needed
                     if reason == "Vehicle Breakdown" {
                         navigateToRepairReport = true
                     } else if reason == "Accident" {
@@ -746,7 +745,7 @@ struct LoadAcceptDeclineView: View {
                     }
                 }
             }
-            // ✅ Pre-fill driver and vehicle into report views
+            //  Pre-fill driver and vehicle into report views
             .navigationDestination(isPresented: $navigateToRepairReport) {
                 RepairReportView(
                     prefilledDriverName: driverName,
@@ -813,7 +812,7 @@ struct DeclineReasonSheet: View {
                         }
                     }
                 } header: {
-                    // ✅ Context-aware header
+                    //  Context-aware header
                     Text(context.title)
                 }
 
@@ -830,18 +829,18 @@ struct DeclineReasonSheet: View {
                                 Image(systemName: context == .declining
                                       ? "xmark.circle.fill"
                                       : "exclamationmark.triangle.fill")
-                                // ✅ Context-aware button label
+                                //  Context-aware button label
                                 Text(context.confirmLabel).fontWeight(.semibold)
                             }
                             .frame(maxWidth: .infinity).padding()
-                            // ✅ Context-aware button color
+                            //  Context-aware button color
                             .background(context.confirmColor)
                             .foregroundColor(.white).cornerRadius(12)
                         }
                     }
                 }
             }
-            // ✅ Context-aware sheet title
+            //  Context-aware sheet title
             .navigationTitle(context == .declining ? "Decline Reason" : "Could Not Deliver")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

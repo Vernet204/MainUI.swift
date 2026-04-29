@@ -138,7 +138,7 @@ struct ManageFleetView: View {
                         }
                     }
                     .listStyle(.insetGrouped)
-                    // ✅ Fixed: actually restarts listeners instead of just toggling isLoading
+                    
                     .refreshable {
                         stopListeners()
                         startListeners()
@@ -410,6 +410,106 @@ struct FleetEmployee: Identifiable, Hashable {
     var vehicleUnit: String
     var phone: String
 }
+
+
+//  Call this when assigning a driver to a vehicle.
+// Clears any prior cross-assignments so only one pairing exists.
+func enforceVehicleDriverAssignment(
+    db: Firestore = Firestore.firestore(),
+    vehicle: FleetVehicle,
+    newDriver: FleetEmployee?,
+    unitNumber: String,
+    plate: String
+) {
+    let driverID   = newDriver?.id   ?? ""
+    let driverName = newDriver?.name ?? ""
+
+    // ── 1. If the vehicle had a DIFFERENT driver before, clear that driver ──
+    if !vehicle.assignedDriverName.isEmpty,
+       vehicle.assignedDriverName != driverName {
+        db.collection("users")
+            .whereField("name", isEqualTo: vehicle.assignedDriverName)
+            .getDocuments { snap, _ in
+                snap?.documents.first?.reference.updateData([
+                    "vehicleUnit":  "",
+                    "vehiclePlate": "",
+                    "vehicleID":    ""
+                ])
+            }
+    }
+
+    guard !driverID.isEmpty else { return }
+
+    // ── 2. If the NEW driver already has a DIFFERENT vehicle, clear that vehicle ──
+    db.collection("users").document(driverID).getDocument { snap, _ in
+        if let oldUnit = snap?.data()?["vehicleUnit"] as? String,
+           !oldUnit.isEmpty, oldUnit != unitNumber {
+            db.collection("vehicles")
+                .whereField("unitNumber", isEqualTo: oldUnit)
+                .getDocuments { vsnap, _ in
+                    vsnap?.documents.first?.reference.updateData([
+                        "assignedDriverID":   "",
+                        "assignedDriverName": ""
+                    ])
+                }
+        }
+
+        // ── 3. Write new assignment to driver's user doc ──
+        db.collection("users").document(driverID).updateData([
+            "vehicleUnit":  unitNumber,
+            "vehiclePlate": plate,
+            "vehicleID":    vehicle.id
+        ])
+    }
+}
+
+//  Call this when assigning a vehicle to an employee (driver).
+// Mirror of the above — enforces from the employee's side.
+func enforceEmployeeVehicleAssignment(
+    db: Firestore = Firestore.firestore(),
+    employee: FleetEmployee,
+    newVehicle: FleetVehicle?,
+    employeeName: String
+) {
+    let vehicleUnit = newVehicle?.unitNumber ?? ""
+    let vehiclePlate = newVehicle?.plate ?? ""
+    let vehicleID   = newVehicle?.id ?? ""
+
+    // ── 1. If employee had a DIFFERENT vehicle before, clear that vehicle ──
+    if !employee.vehicleUnit.isEmpty,
+       employee.vehicleUnit != vehicleUnit {
+        db.collection("vehicles")
+            .whereField("unitNumber", isEqualTo: employee.vehicleUnit)
+            .getDocuments { snap, _ in
+                snap?.documents.first?.reference.updateData([
+                    "assignedDriverID":   "",
+                    "assignedDriverName": ""
+                ])
+            }
+    }
+
+    guard let vehicle = newVehicle else { return }
+
+    // ── 2. If the NEW vehicle already has a DIFFERENT driver, clear that driver ──
+    if !vehicle.assignedDriverName.isEmpty,
+       vehicle.assignedDriverName != employeeName {
+        db.collection("users")
+            .whereField("name", isEqualTo: vehicle.assignedDriverName)
+            .getDocuments { snap, _ in
+                snap?.documents.first?.reference.updateData([
+                    "vehicleUnit":  "",
+                    "vehiclePlate": "",
+                    "vehicleID":    ""
+                ])
+            }
+    }
+
+    // ── 3. Write new assignment to vehicle doc ──
+    db.collection("vehicles").document(vehicle.id).updateData([
+        "assignedDriverID":   employee.id,
+        "assignedDriverName": employeeName
+    ])
+}
  
 // MARK: - Fleet Vehicle Detail View
 struct FleetVehicleDetailView: View {
@@ -587,49 +687,73 @@ struct FleetVehicleDetailView: View {
             }
     }
  
-    func saveChanges() {
+    func saveChanges() {  // FleetVehicleDetailView
         guard !unitNumber.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = "Unit number cannot be empty."; return
         }
         guard !plate.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = "License plate cannot be empty."; return
         }
- 
+
+        //  Check if the selected driver is already assigned to a DIFFERENT vehicle
+        // Show a clear warning before saving so the owner knows what will change
+        if let driver = assignedDriver,
+           !driver.vehicleUnit.isEmpty,
+           driver.vehicleUnit != vehicle.unitNumber {
+            // We allow it but will auto-clear the conflict — show in errorMessage
+            // as an info notice (not blocking)
+            errorMessage = "Note: \(driver.name) will be unassigned from Unit \(driver.vehicleUnit) automatically."
+        }
+
         isSaving = true
-        errorMessage = ""
- 
+
+        let db = Firestore.firestore()
+        let trimmedUnit  = unitNumber.trimmingCharacters(in: .whitespaces)
+        let trimmedPlate = plate.trimmingCharacters(in: .whitespaces).uppercased()
+
         var updateData: [String: Any] = [
-            "unitNumber": unitNumber.trimmingCharacters(in: .whitespaces),
-            "plate": plate.trimmingCharacters(in: .whitespaces).uppercased(),
-            "status": status,
-            "assignedDriverName": assignedDriver?.name ?? "",
-            "assignedDriverID": assignedDriver?.id ?? ""
+            "unitNumber":          trimmedUnit,
+            "plate":               trimmedPlate,
+            "status":              status,
+            "assignedDriverName":  assignedDriver?.name ?? "",
+            "assignedDriverID":    assignedDriver?.id ?? ""
         ]
- 
+
         if status == "Active" && vehicle.status != "Active" {
             updateData["inspectionStatus"] = "Cleared"
         }
- 
-        Firestore.firestore().collection("vehicles").document(vehicle.id)
+
+        db.collection("vehicles").document(vehicle.id)
             .updateData(updateData) { error in
                 DispatchQueue.main.async {
                     isSaving = false
-                    if let error = error { errorMessage = error.localizedDescription; return }
-                    if let driver = assignedDriver {
-                        Firestore.firestore().collection("users").document(driver.id)
-                            .updateData(["vehicleUnit": unitNumber,
-                                         "vehiclePlate": plate,
-                                         "vehicleID": vehicle.id])
+                    if let error = error {
+                        errorMessage = error.localizedDescription
+                        return
                     }
+
+                    //  Enforce one-to-one after the vehicle doc is saved
+                    enforceVehicleDriverAssignment(
+                        db: db,
+                        vehicle: vehicle,
+                        newDriver: assignedDriver,
+                        unitNumber: trimmedUnit,
+                        plate: trimmedPlate
+                    )
+
+                    //  If driver was removed, clear their user doc
                     if assignedDriver == nil && !vehicle.assignedDriverName.isEmpty {
-                        Firestore.firestore().collection("users")
+                        db.collection("users")
                             .whereField("name", isEqualTo: vehicle.assignedDriverName)
                             .getDocuments { snapshot, _ in
                                 snapshot?.documents.first?.reference.updateData([
-                                    "vehicleUnit": "", "vehiclePlate": "", "vehicleID": ""
+                                    "vehicleUnit":  "",
+                                    "vehiclePlate": "",
+                                    "vehicleID":    ""
                                 ])
                             }
                     }
+
                     isEditMode = false
                     dismiss()
                 }
@@ -804,37 +928,60 @@ struct FleetEmployeeDetailView: View {
             }
     }
  
-    func saveChanges() {
+    func saveChanges() {  // FleetEmployeeDetailView
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = "Name cannot be empty."; return
         }
-        isSaving = true; errorMessage = ""
- 
-        Firestore.firestore().collection("users").document(employee.id)
+
+        //  Warn if the selected vehicle already has a different driver
+        if let vehicle = selectedVehicle,
+           !vehicle.assignedDriverName.isEmpty,
+           vehicle.assignedDriverName != employee.name {
+            errorMessage = "Note: \(vehicle.assignedDriverName) will be unassigned from Unit \(vehicle.unitNumber) automatically."
+        }
+
+        isSaving = true
+        let db = Firestore.firestore()
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+
+        db.collection("users").document(employee.id)
             .updateData([
-                "name": name.trimmingCharacters(in: .whitespaces),
-                "phone": phone, "role": role,
-                "vehicleUnit": selectedVehicle?.unitNumber ?? "",
+                "name":         trimmedName,
+                "phone":        phone,
+                "role":         role,
+                "vehicleUnit":  selectedVehicle?.unitNumber ?? "",
                 "vehiclePlate": selectedVehicle?.plate ?? "",
-                "vehicleID": selectedVehicle?.id ?? ""
+                "vehicleID":    selectedVehicle?.id ?? ""
             ]) { error in
                 DispatchQueue.main.async {
                     isSaving = false
-                    if let error = error { errorMessage = error.localizedDescription; return }
-                    if let v = selectedVehicle {
-                        Firestore.firestore().collection("vehicles").document(v.id)
-                            .updateData(["assignedDriverName": name, "assignedDriverID": employee.id])
+                    if let error = error {
+                        errorMessage = error.localizedDescription
+                        return
                     }
+
+                    //  Enforce one-to-one after the user doc is saved
+                    enforceEmployeeVehicleAssignment(
+                        db: db,
+                        employee: employee,
+                        newVehicle: selectedVehicle,
+                        employeeName: trimmedName
+                    )
+
+                    //  If vehicle was removed, clear vehicle's driver assignment
                     if selectedVehicle == nil && !employee.vehicleUnit.isEmpty {
-                        Firestore.firestore().collection("vehicles")
+                        db.collection("vehicles")
                             .whereField("unitNumber", isEqualTo: employee.vehicleUnit)
-                            .getDocuments { snapshot, _ in
-                                snapshot?.documents.first?.reference.updateData([
-                                    "assignedDriverName": "", "assignedDriverID": ""
+                            .getDocuments { snap, _ in
+                                snap?.documents.first?.reference.updateData([
+                                    "assignedDriverName": "",
+                                    "assignedDriverID":   ""
                                 ])
                             }
                     }
-                    isEditMode = false; dismiss()
+
+                    isEditMode = false
+                    dismiss()
                 }
             }
     }
