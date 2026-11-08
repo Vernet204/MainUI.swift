@@ -12,9 +12,12 @@
 		4D112B052F5C8B6E006A56D9 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D112B042F5C8B6E006A56D9 /* FirebaseCore */; };
 		4D112B072F5C8B6E006A56D9 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D112B062F5C8B6E006A56D9 /* FirebaseFirestore */; };
 		4D112B092F5C8B6E006A56D9 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 4D112B082F5C8B6E006A56D9 /* FirebaseStorage */; };
+		4D29BCB72FCE4C2B00711566 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D29BCB62FCE4C2B00711566 /* MessageUI.framework */; };
+		4DFAA7CD2FA027EF004D40F8 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 4DFAA7CC2FA027EF004D40F8 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4D29BCB62FCE4C2B00711566 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		4D799C532F41AEF400AE20B6 /* MainUI.swift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MainUI.swift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -31,6 +34,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D29BCB72FCE4C2B00711566 /* MessageUI.framework in Frameworks */,
+				4DFAA7CD2FA027EF004D40F8 /* FirebaseMessaging in Frameworks */,
 				4D112B012F5C8B6E006A56D9 /* FirebaseAnalytics in Frameworks */,
 				4D112B072F5C8B6E006A56D9 /* FirebaseFirestore in Frameworks */,
 				4D112B052F5C8B6E006A56D9 /* FirebaseCore in Frameworks */,
@@ -42,10 +47,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4D29BCB52FCE4C2B00711566 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4D29BCB62FCE4C2B00711566 /* MessageUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		4D799C4A2F41AEF400AE20B6 = {
 			isa = PBXGroup;
 			children = (
 				4D799C552F41AEF400AE20B6 /* MainUI.swift */,
+				4D29BCB52FCE4C2B00711566 /* Frameworks */,
 				4D799C542F41AEF400AE20B6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -83,6 +97,7 @@
 				4D112B042F5C8B6E006A56D9 /* FirebaseCore */,
 				4D112B062F5C8B6E006A56D9 /* FirebaseFirestore */,
 				4D112B082F5C8B6E006A56D9 /* FirebaseStorage */,
+				4DFAA7CC2FA027EF004D40F8 /* FirebaseMessaging */,
 			);
 			productName = MainUI.swift;
 			productReference = 4D799C532F41AEF400AE20B6 /* MainUI.swift.app */;
@@ -270,12 +285,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MainUI.swift/MainUI.swift.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MainUI.swift/Preview Content\"";
 				DEVELOPMENT_TEAM = KDN9XBSX86;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MainUI-swift-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "GPE Fleet Manager";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to photograph Bills of Lading and delivery documents. ";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to stamp accident reports.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is needed to attach BOL images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -285,9 +308,10 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "co.appbrewery.MainUI-swift";
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.company.MainUI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -299,12 +323,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MainUI.swift/MainUI.swift.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MainUI.swift/Preview Content\"";
 				DEVELOPMENT_TEAM = KDN9XBSX86;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MainUI-swift-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "GPE Fleet Manager";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to photograph Bills of Lading and delivery documents. ";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to stamp accident reports.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is needed to attach BOL images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -314,9 +346,10 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "co.appbrewery.MainUI-swift";
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.company.MainUI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -382,6 +415,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4D112AFF2F5C8B6E006A56D9 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		4DFAA7CC2FA027EF004D40F8 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D112AFF2F5C8B6E006A56D9 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

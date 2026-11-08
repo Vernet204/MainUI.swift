@@ -324,10 +324,7 @@ struct DriverScheduleView: View {
                                 return ScheduledLoad(
                                     id: doc.documentID,
                                     loadID: ld["loadID"] as? String ?? doc.documentID,
-                                    pickupLocation: ld["pickupLocation"] as? String ?? "",
-                                    deliveryLocation: ld["deliveryLocation"] as? String ?? "",
-                                    pickupDateTime: (ld["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date(),
-                                    deliveryDateTime: (ld["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date(),
+                                    stops: Load.decodeStops(from: ld),
                                     status: ld["status"] as? String ?? "",
                                     hasConflict: false
                                 )
@@ -559,6 +556,11 @@ struct DriverScheduleCard: View {
                                 Text("\(load.pickupLocation) → \(load.deliveryLocation)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                if load.stops.count > 2 {
+                                    Text("\(load.stops.count) stops")
+                                        .font(.caption2).fontWeight(.semibold)
+                                        .foregroundColor(.purple)
+                                }
                             }
                         }
                     }
@@ -719,12 +721,14 @@ struct DriverSchedule: Identifiable {
 struct ScheduledLoad: Identifiable {
     let id: String
     var loadID: String
-    var pickupLocation: String
-    var deliveryLocation: String
-    var pickupDateTime: Date
-    var deliveryDateTime: Date
+    var stops: [Stop]
     var status: String
     var hasConflict: Bool
+
+    var pickupLocation: String   { stops.firstPickup?.address ?? "" }
+    var deliveryLocation: String { stops.lastDelivery?.address ?? "" }
+    var pickupDateTime: Date     { stops.firstPickup?.datetime ?? Date() }
+    var deliveryDateTime: Date   { stops.lastDelivery?.datetime ?? Date() }
 }
 
 

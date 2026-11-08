@@ -28,7 +28,7 @@ struct ViewReport: View {
                         systemImage: "doc.text.magnifyingglass"
                     )
                 } else {
-                    ForEach(filteredReports.sorted(by: { $0.date > $1.date })) { report in
+                    ForEach(filteredReports) { report in
 
                         //  Tap to open edit sheet
                         Button {
@@ -112,11 +112,29 @@ struct ViewReport: View {
             ReportEditView(report: report)
         }
     }
-
+    
     // MARK: - Filtered Reports
     private var filteredReports: [ReportItem] {
-        if filterType == "All" { return appState.reports }
-        return appState.reports.filter { $0.reportType == filterType }
+        let reports = filterType == "All"
+            ? appState.reports
+            : appState.reports.filter { $0.reportType == filterType }
+
+        return reports.sorted { a, b in
+            if statusPriority(a.status) != statusPriority(b.status) {
+                return statusPriority(a.status) < statusPriority(b.status)
+            }
+            // ✅ Within same status — oldest first
+            return a.date < b.date
+        }
+    }
+
+    private func statusPriority(_ status: String) -> Int {
+        switch status.lowercased() {
+        case "open":        return 0
+        case "in progress": return 1
+        case "resolved":    return 2
+        default:            return 3
+        }
     }
 
     private var reportTypes: [String] {

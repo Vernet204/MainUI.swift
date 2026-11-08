@@ -2,7 +2,7 @@
 //  EditLoadView.swift
 //  MainUI.swift
 //
-//  Created by lounyveson vernet on 4/19/26.
+//  Multi-stop load editor.
 //
 
 
@@ -15,10 +15,7 @@ struct EditLoadView: View {
     let load: LoadInfo
     var onSave: () -> Void
 
-    @State private var pickupLocation = ""
-    @State private var deliveryLocation = ""
-    @State private var pickupDateTime = Date()
-    @State private var deliveryDateTime = Date()
+    @State private var stops: [Stop] = []
     @State private var weight = ""
     @State private var rate = ""
     @State private var commodity = ""
@@ -46,28 +43,8 @@ struct EditLoadView: View {
                         .keyboardType(.decimalPad)
                 }
 
-                Section("Pickup") {
-                    TextField("Pickup Location", text: $pickupLocation)
-                    DatePicker(
-                        "Date & Time",
-                        selection: $pickupDateTime,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                    .onChange(of: pickupDateTime) { newValue in
-                        if deliveryDateTime <= newValue {
-                            deliveryDateTime = newValue.addingTimeInterval(3600 * 4)
-                        }
-                    }
-                }
-
-                Section("Delivery") {
-                    TextField("Delivery Location", text: $deliveryLocation)
-                    DatePicker(
-                        "Date & Time",
-                        selection: $deliveryDateTime,
-                        in: pickupDateTime...,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
+                Section("Stops") {
+                    StopsEditor(stops: $stops)
                 }
 
                 Section("Status") {
@@ -173,10 +150,12 @@ struct EditLoadView: View {
 
     // MARK: - Load Fields
     func loadFields() {
-        pickupLocation = load.pickupLocation
-        deliveryLocation = load.deliveryLocation
-        pickupDateTime = load.pickupDateTime
-        deliveryDateTime = load.deliveryDateTime
+        //  Prefer the live stops array from LoadInfo; if the load predates the redesign
+        //  and only has flat fields, LoadInfo.decodeStops already synthesized a 2-stop pair.
+        stops = load.stops.isEmpty
+            ? [Stop(type: .pickup,   address: "", datetime: Date()),
+               Stop(type: .delivery, address: "", datetime: Date().addingTimeInterval(3600 * 8))]
+            : load.stops
         weight = load.weight
         rate = load.rate
         commodity = load.commodity
@@ -204,12 +183,19 @@ struct EditLoadView: View {
 
     // MARK: - Save Changes
     func saveChanges() {
-        guard !pickupLocation.isEmpty else {
-            errorMessage = "Enter pickup location."
+        let trimmedStops = stops.map {
+            var s = $0
+            s.address = s.address.trimmingCharacters(in: .whitespaces)
+            s.reference = s.reference.trimmingCharacters(in: .whitespaces)
+            return s
+        }.filter { !$0.address.isEmpty }
+
+        guard trimmedStops.firstPickup != nil else {
+            errorMessage = "Add at least one pickup stop."
             return
         }
-        guard !deliveryLocation.isEmpty else {
-            errorMessage = "Enter delivery location."
+        guard trimmedStops.lastDelivery != nil else {
+            errorMessage = "Add at least one delivery stop."
             return
         }
 
@@ -226,21 +212,21 @@ struct EditLoadView: View {
             finalStatus = status
         }
 
+        var updates: [String: Any] = [
+            "weight": weight,
+            "rate": rate,
+            "commodity": commodity,
+            "specialInstructions": specialInstructions,
+            "assignedDriver": assignedDriver,
+            "status": finalStatus
+        ]
+        //  stops array + mirrored top-level fields
+        updates.merge(LoadWrite.stopFields(trimmedStops)) { _, new in new }
+
         Firestore.firestore()
             .collection("loads")
             .document(load.id)
-            .updateData([
-                "pickupLocation": pickupLocation.trimmingCharacters(in: .whitespaces),
-                "deliveryLocation": deliveryLocation.trimmingCharacters(in: .whitespaces),
-                "pickupDateTime": Timestamp(date: pickupDateTime),
-                "deliveryDateTime": Timestamp(date: deliveryDateTime),
-                "weight": weight,
-                "rate": rate,
-                "commodity": commodity,
-                "specialInstructions": specialInstructions,
-                "assignedDriver": assignedDriver,
-                "status": finalStatus
-            ]) { error in
+            .updateData(updates) { error in
                 DispatchQueue.main.async {
                     isSaving = false
                     if let error = error {

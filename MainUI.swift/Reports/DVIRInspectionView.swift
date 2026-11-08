@@ -3,6 +3,27 @@ import FirebaseFirestore
 
 struct DVIRInspectionView: View {
 
+    let load: Load?
+    let onPass: (() -> Void)?
+
+    //  Pre-fill support — passed when launched from Driver Dashboard / Start Trip
+    var prefilledDriverName: String = ""
+    var prefilledVehicleUnit: String = ""
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        load: Load? = nil,
+        prefilledDriverName: String = "",
+        prefilledVehicleUnit: String = "",
+        onPass: (() -> Void)? = nil
+    ) {
+        self.load = load
+        self.prefilledDriverName = prefilledDriverName
+        self.prefilledVehicleUnit = prefilledVehicleUnit
+        self.onPass = onPass
+    }
+
     @State private var selectedDriver: ReportDriver? = nil
     @State private var selectedVehicle: ReportVehicle? = nil
     @State private var trailerID = ""
@@ -117,8 +138,23 @@ struct DVIRInspectionView: View {
                 fetchDrivers()
                 fetchVehicles()
             }
+            .alert("Missing Information", isPresented: Binding(
+                get: { !errorMessage.isEmpty },
+                set: { if !$0 { errorMessage = "" } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = "" }
+            } message: {
+                Text(errorMessage)
+            }
             .alert("DVIR Submitted Successfully", isPresented: $showConfirmation) {
-                Button("OK", role: .cancel) { resetForm() }
+                Button("OK", role: .cancel) {
+                    let passed = !defectsFound
+                    resetForm()
+                    if passed {
+                        onPass?()
+                        dismiss()
+                    }
+                }
             } message: {
                 Text(defectsFound
                      ? "Report saved and a maintenance record has been created for this vehicle."
@@ -137,14 +173,20 @@ struct DVIRInspectionView: View {
                     drivers = docs.map {
                         ReportDriver(id: $0.documentID, name: $0.data()["name"] as? String ?? "")
                     }.filter { !$0.name.isEmpty }
+
+                    //  Pre-select driver if name was passed in
+                    if !prefilledDriverName.isEmpty {
+                        selectedDriver = drivers.first { $0.name == prefilledDriverName }
+                    }
                 }
             }
     }
 
     func fetchVehicles() {
+        //  Fetch all vehicles — DVIR must be submittable regardless of current status
+        //  (e.g. driver's assigned truck already marked In Maintenance)
         Firestore.firestore()
             .collection("vehicles")
-            .whereField("status", isEqualTo: "Active")
             .getDocuments { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
                 DispatchQueue.main.async {
@@ -156,6 +198,11 @@ struct DVIRInspectionView: View {
                             plate: d["plate"] as? String ?? ""
                         )
                     }.filter { !$0.unitNumber.isEmpty }
+
+                    //  Pre-select vehicle if unit number was passed in
+                    if !prefilledVehicleUnit.isEmpty {
+                        selectedVehicle = vehicles.first { $0.unitNumber == prefilledVehicleUnit }
+                    }
                 }
             }
     }

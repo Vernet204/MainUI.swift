@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseFirestore
 
 final class AppState: ObservableObject {
-    @Published var reports: [ReportItem] = []  // ✅ Empty — Firestore is source of truth
+    @Published var reports: [ReportItem] = []  //  Empty — Firestore is source of truth
 
     private var reportListener: ListenerRegistration? = nil
 

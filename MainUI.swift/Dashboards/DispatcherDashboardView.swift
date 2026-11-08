@@ -1,9 +1,17 @@
+//
+//  DispatcherDashboardView.swift
+//  MainUI.swift
+//
+//  Created by lounyveson vernet on 3/29/26.
+//
 import SwiftUI
 import FirebaseFirestore
 
 struct DispatcherDashboardView: View {
 
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var appState: AppState
+    @StateObject private var packetService = LoadPacketService.shared
 
     // MARK: - Live Stats
     @State private var unassignedLoads = 0
@@ -13,15 +21,16 @@ struct DispatcherDashboardView: View {
     @State private var availableDrivers = 0
     @State private var totalDrivers = 0
 
-    // MARK: - Alerts
+    // MARK: - Alerts & Recent Activity
     @State private var alertItems: [DispatcherAlert] = []
-
-    // MARK: - Recent Activity
     @State private var recentLoads: [RecentLoadItem] = []
 
     // MARK: - Listeners
     @State private var loadListener: ListenerRegistration? = nil
     @State private var driverListener: ListenerRegistration? = nil
+
+    // MARK: - Sheets
+    @State private var showFactoringPacket = false
 
     var body: some View {
         NavigationStack {
@@ -79,13 +88,36 @@ struct DispatcherDashboardView: View {
                         .padding(.horizontal)
                     }
 
-                    // MARK: - Alerts
+                    // MARK: - BOL Tasks — action required
+                    if !packetService.bolTasks.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("BOL Action Required (\(packetService.bolTasks.count))")
+                                    .font(.headline)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+
+                            VStack(spacing: 8) {
+                                ForEach(packetService.bolTasks) { task in
+                                    BOLTaskRow(task: task) {
+                                        packetService.fetchBOLTasks()
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // MARK: - Dispatcher Alerts
                     if !alertItems.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundColor(.orange)
-                                Text("Action Required (\(alertItems.count))")
+                                Text("Needs Attention (\(alertItems.count))")
                                     .font(.headline)
                             }
                             .padding(.horizontal)
@@ -97,31 +129,6 @@ struct DispatcherDashboardView: View {
                             }
                             .padding(.horizontal)
                         }
-                    }
-
-                    // MARK: - Quick Actions
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Quick Actions")
-                            .font(.headline)
-                            .padding(.horizontal)
-
-                        HStack(spacing: 12) {
-                            NavigationLink(destination: CreateLoadView().environmentObject(authManager)) {
-                                QuickActionButton(
-                                    title: "Create Load",
-                                    icon: "plus.circle.fill",
-                                    color: .blue
-                                )
-                            }
-                            NavigationLink(destination: AssignLoadView()) {
-                                QuickActionButton(
-                                    title: "Assign Load",
-                                    icon: "person.crop.circle.badge.checkmark",
-                                    color: .green
-                                )
-                            }
-                        }
-                        .padding(.horizontal)
                     }
 
                     // MARK: - Recent Loads
@@ -140,26 +147,26 @@ struct DispatcherDashboardView: View {
                         }
                     }
 
-                    // MARK: - Navigation Cards
+                    // MARK: - Navigation cards
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Tools")
                             .font(.headline)
                             .padding(.horizontal)
 
                         VStack(spacing: 12) {
+                            NavigationLink(destination: CreateLoadView()) {
+                                DashboardCard(
+                                    title: "Create Load",
+                                    icon: "plus.circle.fill",
+                                    color: .blue
+                                )
+                            }
+
                             NavigationLink(destination: DispatcherLoadBoardView()) {
                                 DashboardCard(
                                     title: "Load Board",
                                     icon: "list.bullet.rectangle",
                                     color: .blue
-                                )
-                            }
-
-                            NavigationLink(destination: AssignLoadView()) {
-                                DashboardCard(
-                                    title: "Assign Loads",
-                                    icon: "person.crop.circle.badge.checkmark",
-                                    color: .green
                                 )
                             }
 
@@ -178,6 +185,16 @@ struct DispatcherDashboardView: View {
                                     color: .teal
                                 )
                             }
+
+                            Button {
+                                showFactoringPacket = true
+                            } label: {
+                                DashboardCard(
+                                    title: "Factoring Packet",
+                                    icon: "doc.on.doc.fill",
+                                    color: .indigo
+                                )
+                            }
                         }
                         .padding(.horizontal)
                     }
@@ -190,15 +207,20 @@ struct DispatcherDashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Logout") {
-                        authManager.logout()
-                    }
-                    .foregroundColor(.red)
+                    Button("Logout") { authManager.logout() }
+                        .foregroundColor(.red)
                 }
             }
-            .onAppear { startListeners() }
+            .onAppear {
+                packetService.fetchBOLTasks()
+                startListeners()
+            }
             .onDisappear { stopListeners() }
             .refreshable { refreshData() }
+            .sheet(isPresented: $showFactoringPacket) {
+                FactoringPacketView()
+                    .environmentObject(authManager)
+            }
         }
     }
 
@@ -218,6 +240,7 @@ struct DispatcherDashboardView: View {
     func refreshData() {
         stopListeners()
         startListeners()
+        packetService.fetchBOLTasks()
     }
 
     // MARK: - Load Listener
@@ -247,7 +270,7 @@ struct DispatcherDashboardView: View {
                     switch status {
                     case "Unassigned":
                         unassigned += 1
-                        // Alert if pickup is within 24 hours
+                        //  Alert if pickup is within 24 hours and still unassigned
                         if let pt = pickupDT, pt.timeIntervalSinceNow < 86400 && pt > Date() {
                             alerts.append(DispatcherAlert(
                                 id: doc.documentID,
@@ -289,11 +312,11 @@ struct DispatcherDashboardView: View {
 
                 DispatchQueue.main.async {
                     unassignedLoads = unassigned
-                    assignedLoads = assigned
-                    inTransitLoads = inTransit
-                    declinedLoads = declined
-                    alertItems = alerts
-                    recentLoads = recent.sorted { $0.createdAt > $1.createdAt }
+                    assignedLoads   = assigned
+                    inTransitLoads  = inTransit
+                    declinedLoads   = declined
+                    alertItems      = alerts
+                    recentLoads     = recent.sorted { $0.createdAt > $1.createdAt }
                 }
             }
     }
@@ -305,10 +328,9 @@ struct DispatcherDashboardView: View {
             .whereField("role", isEqualTo: "Driver")
             .addSnapshotListener { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
-
                 let total = docs.count
 
-                // Available = drivers not currently In Transit or Assigned
+                //  Available = drivers not currently assigned/accepted/in transit
                 Firestore.firestore()
                     .collection("loads")
                     .whereField("status", in: ["Assigned", "Accepted", "In Transit"])
@@ -320,8 +342,8 @@ struct DispatcherDashboardView: View {
                         )
 
                         DispatchQueue.main.async {
-                            totalDrivers = total
-                            availableDrivers = total - busyDrivers.count
+                            totalDrivers     = total
+                            availableDrivers = max(0, total - busyDrivers.count)
                         }
                     }
             }
@@ -352,29 +374,6 @@ struct DispatchStatCard: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(color.opacity(0.08))
-        .cornerRadius(12)
-    }
-}
-
-// MARK: - Quick Action Button
-struct QuickActionButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(.white)
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(color)
         .cornerRadius(12)
     }
 }

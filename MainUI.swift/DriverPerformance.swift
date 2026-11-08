@@ -723,9 +723,51 @@ struct DispatcherPerformanceDetailView: View {
                     DetailRow(label: "Avg Assign Time",  value: formatHours(dispatcher.avgAssignTimeHours))
                     DetailRow(label: "Revenue Managed",  value: "$\(String(format: "%.2f", dispatcher.totalRevenueManagedUSD))")
                 }
+
+                // ✅ Overall rating section
+                Section("Rating") {
+                    HStack {
+                        Text("Overall").foregroundColor(.secondary)
+                        Spacer()
+                        Text(dispatcherRating).fontWeight(.bold)
+                    }
+                    Text(dispatcherRatingDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .navigationTitle(dispatcher.dispatcherName)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() } } }
+        }
+    }
+
+    // ✅ Weighted on reassignment rate, load volume, and assign speed
+    var dispatcherRating: String {
+        let volumeScore   = min(Double(dispatcher.loadsAssigned) / 20.0 * 100, 100) * 0.4
+        let reassignScore = max(0, 100 - dispatcher.reassignRate) * 0.4
+        let speedScore    = dispatcher.avgAssignTimeHours == 0 ? 50 :
+                            max(0, 100 - (dispatcher.avgAssignTimeHours / 24 * 100)) * 0.2
+        let total = volumeScore + reassignScore + speedScore
+        switch total {
+        case 90...: return "Excellent ⭐⭐⭐⭐⭐"
+        case 75...: return "Good ⭐⭐⭐⭐"
+        case 60...: return "Average ⭐⭐⭐"
+        case 40...: return "Below Average ⭐⭐"
+        default:    return "Needs Improvement ⭐"
+        }
+    }
+
+    var dispatcherRatingDescription: String {
+        if dispatcher.reassignRate > 25 {
+            return "High reassignment rate — review driver selection process."
+        } else if dispatcher.loadsAssigned < 5 {
+            return "Not enough data yet for a full evaluation."
+        } else if dispatcher.avgAssignTimeHours > 12 {
+            return "Loads are taking too long to assign after creation."
+        } else if dispatcher.reassignRate <= 10 && dispatcher.loadsAssigned >= 10 {
+            return "Strong performance — efficient and reliable."
+        } else {
+            return "Performance is average — room for improvement."
         }
     }
 }
@@ -766,9 +808,51 @@ struct VehiclePerformanceDetailView: View {
                     DetailRow(label: "Inspections Passed",  value: "\(vehicle.inspectionsPassed)")
                     DetailRow(label: "Inspections Failed",  value: "\(vehicle.inspectionsFailed)")
                 }
+
+                // ✅ Overall rating section
+                Section("Rating") {
+                    HStack {
+                        Text("Overall").foregroundColor(.secondary)
+                        Spacer()
+                        Text(vehicleRating).fontWeight(.bold)
+                    }
+                    Text(vehicleRatingDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .navigationTitle("Unit \(vehicle.unitNumber)")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() } } }
+        }
+    }
+
+    // ✅ Weighted on trips, inspection pass rate, and maintenance frequency
+    var vehicleRating: String {
+        let tripScore       = min(Double(vehicle.tripsCompleted) / 20.0 * 100, 100) * 0.4
+        let inspectionScore = vehicle.inspectionPassRate * 0.4
+        let maintScore      = vehicle.maintenanceCount == 0 ? 100 :
+                              max(0, 100 - Double(vehicle.maintenanceCount) * 10) * 0.2
+        let total = tripScore + inspectionScore + maintScore
+        switch total {
+        case 90...: return "Excellent ⭐⭐⭐⭐⭐"
+        case 75...: return "Good ⭐⭐⭐⭐"
+        case 60...: return "Average ⭐⭐⭐"
+        case 40...: return "Below Average ⭐⭐"
+        default:    return "Needs Improvement ⭐"
+        }
+    }
+
+    var vehicleRatingDescription: String {
+        if vehicle.currentStatus == "In Maintenance" {
+            return "Currently in maintenance — check repair records."
+        } else if vehicle.inspectionPassRate < 60 {
+            return "High failure rate on inspections — review vehicle condition."
+        } else if vehicle.maintenanceCount > 5 {
+            return "Frequent maintenance — consider scheduling a full service."
+        } else if vehicle.inspectionPassRate >= 90 && vehicle.tripsCompleted >= 10 {
+            return "Reliable vehicle — consistently passing inspections."
+        } else {
+            return "Performance is average — monitor inspection results."
         }
     }
 }

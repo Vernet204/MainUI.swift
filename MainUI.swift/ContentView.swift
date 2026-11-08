@@ -31,9 +31,8 @@ struct ContentView: View {
                         .environmentObject(appState)
                         .onAppear {
                             appState.startListeningToReports()
-                            // ✅ Request notification permission and save FCM token
-                            NotificationManager.shared.requestPermissionAndRegister()
-                            NotificationManager.shared.saveFCMToken()
+                            
+                            
                         }
                         .onDisappear {
                             appState.stopAllListeners()

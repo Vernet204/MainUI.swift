@@ -122,6 +122,14 @@ struct DispatcherLoadBoardView: View {
                                         systemImage: "clock.fill"
                                     )
 
+                                    if load.stops.count > 2 {
+                                        Label(
+                                            "\(load.stops.count) stops total",
+                                            systemImage: "arrow.triangle.turn.up.right.diamond.fill"
+                                        )
+                                        .foregroundColor(.purple)
+                                    }
+
                                     if !load.commodity.isEmpty {
                                         Label(
                                             "Cargo: \(load.commodity)",
@@ -233,16 +241,10 @@ struct DispatcherLoadBoardView: View {
                 DispatchQueue.main.async {
                     loads = docs.compactMap { doc in
                         let d = doc.data()
-                        let pickupDT = (d["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                        let deliveryDT = (d["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date()
-
                         return LoadInfo(
                             id: doc.documentID,
                             loadID: d["loadID"] as? String ?? doc.documentID,
-                            pickupLocation: d["pickupLocation"] as? String ?? "",
-                            deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                            pickupDateTime: pickupDT,
-                            deliveryDateTime: deliveryDT,
+                            stops: Load.decodeStops(from: d),
                             status: d["status"] as? String ?? "Unassigned",
                             commodity: d["commodity"] as? String ?? "",
                             rate: d["rate"] as? String ?? "",

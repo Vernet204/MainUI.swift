@@ -91,6 +91,15 @@ struct DriverDashboardView: View {
                                         Image(systemName: "mappin.and.ellipse").foregroundColor(.red)
                                         Text(load.deliveryLocation).font(.subheadline).foregroundColor(.secondary)
                                     }
+                                    if load.stops.count > 2 {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                                .foregroundColor(.purple)
+                                            Text("\(load.stops.count) stops total — tap to view all")
+                                                .font(.caption).fontWeight(.semibold)
+                                                .foregroundColor(.purple)
+                                        }
+                                    }
                                     HStack(spacing: 8) {
                                         Image(systemName: "clock.fill").foregroundColor(.orange)
                                         Text("Deliver by: \(load.dropoffDate)").font(.caption).foregroundColor(.secondary)
@@ -167,21 +176,30 @@ struct DriverDashboardView: View {
                                 subtitle: "Daily vehicle inspection",
                                 icon: "checkmark.shield.fill",
                                 color: .green,
-                                destination: AnyView(DVIRInspectionView())
+                                destination: AnyView(DVIRInspectionView(
+                                    prefilledDriverName: authManager.appUser?.name ?? "",
+                                    prefilledVehicleUnit: authManager.appUser?.vehicleUnit ?? assignedVehicle
+                                ))
                             )
                             DriverReportLink(
                                 title: "Repair Report",
                                 subtitle: "Report a vehicle issue",
                                 icon: "wrench.and.screwdriver.fill",
                                 color: .orange,
-                                destination: AnyView(RepairReportView())
+                                destination: AnyView(RepairReportView(
+                                    prefilledDriverName: authManager.appUser?.name ?? "",
+                                    prefilledVehicleUnit: authManager.appUser?.vehicleUnit ?? assignedVehicle
+                                ))
                             )
                             DriverReportLink(
                                 title: "Report an Accident",
                                 subtitle: "Emergency incident report",
                                 icon: "exclamationmark.triangle.fill",
                                 color: .red,
-                                destination: AnyView(AccidentReportView())
+                                destination: AnyView(AccidentReportView(
+                                    prefilledDriverName: authManager.appUser?.name ?? "",
+                                    prefilledVehicleUnit: authManager.appUser?.vehicleUnit ?? assignedVehicle
+                                ))
                             )
                         }
                         .padding(.horizontal)
@@ -238,17 +256,7 @@ struct DriverDashboardView: View {
                 for doc in docs {
                     let d = doc.data()
                     let status = d["status"] as? String ?? ""
-                    let pickupDT = (d["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                    let deliveryDT = (d["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                    let load = DriverLoad(
-                        id: doc.documentID,
-                        loadID: d["loadID"] as? String ?? doc.documentID,
-                        pickupLocation: d["pickupLocation"] as? String ?? "",
-                        deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                        pickupDate: pickupDT.formatted(date: .abbreviated, time: .shortened),
-                        dropoffDate: deliveryDT.formatted(date: .abbreviated, time: .shortened),
-                        status: status
-                    )
+                    let load = DriverLoad.from(docID: doc.documentID, data: d)
                     switch status.lowercased() {
                     case "assigned":   active += 1; if assignedLoad == nil { assignedLoad = load }
                     case "accepted":   active += 1; if acceptedLoad == nil { acceptedLoad = load }
@@ -383,6 +391,12 @@ struct DriverLoadBoardView: View {
                                 .font(.subheadline).foregroundColor(.secondary)
                             Label("Date & Time: \(load.dropoffDate)", systemImage: "clock.fill")
                                 .font(.subheadline).foregroundColor(.secondary)
+                            if load.stops.count > 2 {
+                                Label("\(load.stops.count) stops — tap for details",
+                                      systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                    .font(.caption).fontWeight(.semibold)
+                                    .foregroundColor(.purple)
+                            }
                         }
                         .padding(.vertical, 6)
                     }
@@ -424,20 +438,7 @@ struct DriverLoadBoardView: View {
                     return
                 }
                 DispatchQueue.main.async {
-                    loads = docs.map { doc in
-                        let d = doc.data()
-                        let pickupDT = (d["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                        let deliveryDT = (d["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                        return DriverLoad(
-                            id: doc.documentID,
-                            loadID: d["loadID"] as? String ?? doc.documentID,
-                            pickupLocation: d["pickupLocation"] as? String ?? "",
-                            deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                            pickupDate: pickupDT.formatted(date: .abbreviated, time: .shortened),
-                            dropoffDate: deliveryDT.formatted(date: .abbreviated, time: .shortened),
-                            status: d["status"] as? String ?? "Assigned"
-                        )
-                    }
+                    loads = docs.map { DriverLoad.from(docID: $0.documentID, data: $0.data()) }
                     isLoading = false
                 }
             }
@@ -561,7 +562,7 @@ enum DeclineContext {
 
 // MARK: - Accept / Decline / Status Sheet
 struct LoadAcceptDeclineView: View {
-
+    
     @Environment(\.dismiss) var dismiss
     let load: DriverLoad
     //  Pre-fill info passed from DriverLoadBoardView
@@ -569,12 +570,18 @@ struct LoadAcceptDeclineView: View {
     let vehicleUnit: String
     var onAction: (LoadAction) -> Void
 
+    //  Mutable local copy of the stops array so per-stop button taps update the UI
+    //  immediately before Firestore round-trips back through the parent listener.
+    @State private var localStops: [Stop] = []
+
     @State private var showDeclineReasonSheet = false
     @State private var showInTransitConfirm = false
     @State private var showDeliveredConfirm = false
+    @State private var showDVIRInspectionView = false
     @State private var selectedDeclineReason = ""
     @State private var navigateToRepairReport = false
     @State private var navigateToAccidentReport = false
+    @State private var showDocuments = false
     //  Track which context opened the reason sheet
     @State private var declineContext: DeclineContext = .declining
 
@@ -583,12 +590,42 @@ struct LoadAcceptDeclineView: View {
             List {
 
                 Section("Load Details") {
-                    DetailRow(label: "Load ID",              value: load.loadID)
-                    DetailRow(label: "Pickup",               value: load.pickupLocation)
-                    DetailRow(label: "Pickup Date & Time",   value: load.pickupDate)
-                    DetailRow(label: "Destination",          value: load.deliveryLocation)
-                    DetailRow(label: "Delivery Date & Time", value: load.dropoffDate)
-                    DetailRow(label: "Current Status",       value: load.status)
+                    DetailRow(label: "Load ID",        value: load.loadID)
+                    DetailRow(label: "Current Status", value: load.status)
+                }
+
+                Section("Stops") {
+                    if localStops.isEmpty {
+                        Text("No stops on file").foregroundColor(.secondary).font(.caption)
+                    } else if load.status.lowercased() == "in transit" {
+                        //  In-transit → each stop gets its own action controls
+                        ForEach(Array(localStops.enumerated()), id: \.element.id) { index, stop in
+                            ActionableStopRow(
+                                index: index + 1,
+                                stop: stop,
+                                onMarkArrived:   { updateStopStatus(stop.id, to: .arrived) },
+                                onMarkCompleted: { updateStopStatus(stop.id, to: .completed) }
+                            )
+                        }
+                    } else {
+                        //  Accepted / Delivered / Assigned → read-only
+                        ForEach(Array(localStops.enumerated()), id: \.element.id) { index, stop in
+                            StopRow(index: index + 1, stop: stop)
+                        }
+                    }
+                }
+
+                Section("Documents") {
+                    Button {
+                        showDocuments = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "doc.text.fill").foregroundColor(.blue)
+                            Text("View Rate Con").fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundColor(.gray).font(.caption)
+                        }
+                    }
                 }
 
                 Section("Actions") {
@@ -629,7 +666,7 @@ struct LoadAcceptDeclineView: View {
                         }
                         .frame(maxWidth: .infinity).padding()
 
-                        Button { showInTransitConfirm = true } label: {
+                        Button { showDVIRInspectionView = true } label: {
                             HStack {
                                 Image(systemName: "truck.box.fill")
                                 Text("Start Trip — Mark In Transit").fontWeight(.semibold)
@@ -639,7 +676,8 @@ struct LoadAcceptDeclineView: View {
                         }
                     }
 
-                    // MARK: In Transit — Mark Delivered or Could Not Deliver
+                    // MARK: In Transit — stop progression lives in the Stops section above.
+                    //  The load auto-advances to Delivered when every stop is marked completed.
                     if load.status.lowercased() == "in transit" {
                         HStack {
                             Image(systemName: "truck.box.fill").foregroundColor(.purple)
@@ -647,14 +685,11 @@ struct LoadAcceptDeclineView: View {
                         }
                         .frame(maxWidth: .infinity).padding()
 
-                        Button { showDeliveredConfirm = true } label: {
-                            HStack {
-                                Image(systemName: "shippingbox.fill")
-                                Text("Mark as Delivered").fontWeight(.semibold)
-                            }
-                            .frame(maxWidth: .infinity).padding()
-                            .background(Color.blue).foregroundColor(.white).cornerRadius(12)
-                        }
+                        Text("Mark each stop as you arrive and depart. The load will finish automatically when all stops are completed.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
 
                         // ✅ Opens reason sheet in couldNotDeliver context
                         Button {
@@ -702,7 +737,7 @@ struct LoadAcceptDeclineView: View {
                         .padding()
                     }
 
-                    // MARK: Delivered — info only
+                    // MARK: Delivered — upload signed BOL
                     if load.status.lowercased() == "delivered" {
                         HStack {
                             Spacer()
@@ -713,14 +748,42 @@ struct LoadAcceptDeclineView: View {
                             Spacer()
                         }
                         .padding()
+
+                        // ✅ Prompt driver to upload signed BOL after delivery
+                        Button {
+                            showDocuments = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "doc.badge.arrow.up.fill")
+                                Text("Upload Signed BOL").fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity).padding()
+                            .background(Color.blue).foregroundColor(.white).cornerRadius(12)
+                        }
                     }
                 }
             }
             .navigationTitle("Load \(load.loadID)")
+            .onAppear { localStops = load.stops }
+            .onChange(of: load.stops) { _, newValue in localStops = newValue }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Back") { dismiss() }
                 }
+            }
+            // ✅ Pre-trip inspection — must complete before going In Transit
+            .sheet(isPresented: $showDVIRInspectionView) {
+                DVIRInspectionView(
+                    prefilledDriverName: driverName,
+                    prefilledVehicleUnit: vehicleUnit
+                ) {
+                    // After inspection passes → mark In Transit
+                    onAction(.inTransit)
+                }
+            }
+            // ✅ Documents sheet — BOL capture, rate con view, email to broker
+            .sheet(isPresented: $showDocuments) {
+                LoadDocumentsView(load: load)
             }
             //  Single sheet — context controls copy, reasons, and Firestore action
             .sheet(isPresented: $showDeclineReasonSheet) {
@@ -773,6 +836,38 @@ struct LoadAcceptDeclineView: View {
                 Text("This will mark the load as Delivered.")
             }
         }
+    }
+
+    //  Update a single stop's status, mirror the stops array to Firestore, and
+    //  auto-advance the load to Delivered once every stop is completed.
+    func updateStopStatus(_ stopID: String, to newStatus: StopStatus) {
+        guard let idx = localStops.firstIndex(where: { $0.id == stopID }) else { return }
+        var updated = localStops
+        let now = Date()
+        updated[idx].status = newStatus
+        switch newStatus {
+        case .arrived:
+            updated[idx].arrivedAt = now
+        case .completed:
+            if updated[idx].arrivedAt == nil { updated[idx].arrivedAt = now }
+            updated[idx].completedAt = now
+        case .pending:
+            break
+        }
+
+        localStops = updated
+
+        var payload: [String: Any] = ["stops": updated.firestoreArray]
+        if updated.allCompleted {
+            payload["status"]      = "Delivered"
+            payload["deliveredAt"] = Timestamp()
+            payload["deliveredBy"] = driverName
+        }
+
+        Firestore.firestore()
+            .collection("loads")
+            .document(load.id)
+            .updateData(payload)
     }
 }
 
@@ -856,11 +951,164 @@ struct DeclineReasonSheet: View {
 struct DriverLoad: Identifiable {
     let id: String
     var loadID: String
-    var pickupLocation: String
-    var deliveryLocation: String
-    var pickupDate: String
-    var dropoffDate: String
+    var stops: [Stop]
     var status: String
+
+    //  First-pickup / last-delivery convenience accessors for display
+    var pickupLocation: String   { stops.firstPickup?.address ?? "" }
+    var deliveryLocation: String { stops.lastDelivery?.address ?? "" }
+    var pickupDate: String {
+        stops.firstPickup?.datetime.formatted(date: .abbreviated, time: .shortened) ?? ""
+    }
+    var dropoffDate: String {
+        stops.lastDelivery?.datetime.formatted(date: .abbreviated, time: .shortened) ?? ""
+    }
+
+    static func from(docID: String, data: [String: Any]) -> DriverLoad {
+        DriverLoad(
+            id: docID,
+            loadID: data["loadID"] as? String ?? docID,
+            stops: Load.decodeStops(from: data),
+            status: data["status"] as? String ?? "Assigned"
+        )
+    }
+}
+
+// MARK: - Stop status badge
+struct StopStatusBadge: View {
+    let status: StopStatus
+
+    var body: some View {
+        let (icon, color, text) = style
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.caption2)
+            Text(text).font(.caption2).fontWeight(.semibold)
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 6).padding(.vertical, 2)
+        .background(color.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
+    private var style: (String, Color, String) {
+        switch status {
+        case .pending:   return ("circle",                .gray,   "Pending")
+        case .arrived:   return ("mappin.circle.fill",    .orange, "Arrived")
+        case .completed: return ("checkmark.circle.fill", .green,  "Done")
+        }
+    }
+}
+
+// MARK: - Stop Row (shared, read-only)
+struct StopRow: View {
+    let index: Int
+    let stop: Stop
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: stop.type == .pickup
+                      ? "mappin.circle.fill"
+                      : "mappin.and.ellipse")
+                    .foregroundColor(stop.type == .pickup ? .green : .red)
+                Text("\(index). \(stop.type.label)")
+                    .font(.subheadline).fontWeight(.semibold)
+                Spacer()
+                StopStatusBadge(status: stop.status)
+                if !stop.reference.isEmpty {
+                    Text(stop.reference)
+                        .font(.caption2).foregroundColor(.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color(.systemGray5))
+                        .clipShape(Capsule())
+                }
+            }
+            Text(stop.address.isEmpty ? "No address" : stop.address)
+                .font(.subheadline).foregroundColor(.secondary)
+            Text(stop.datetime.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption).foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Actionable Stop Row (driver, in-transit)
+struct ActionableStopRow: View {
+    let index: Int
+    let stop: Stop
+    let onMarkArrived:   () -> Void
+    let onMarkCompleted: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: stop.type == .pickup
+                      ? "mappin.circle.fill"
+                      : "mappin.and.ellipse")
+                    .foregroundColor(stop.type == .pickup ? .green : .red)
+                Text("\(index). \(stop.type.label)")
+                    .font(.subheadline).fontWeight(.semibold)
+                Spacer()
+                StopStatusBadge(status: stop.status)
+            }
+
+            Text(stop.address.isEmpty ? "No address" : stop.address)
+                .font(.subheadline).foregroundColor(.secondary)
+
+            HStack(spacing: 6) {
+                Image(systemName: "clock").font(.caption)
+                Text(stop.datetime.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+            }
+            .foregroundColor(.secondary)
+
+            if !stop.reference.isEmpty {
+                Text("Ref: \(stop.reference)")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+
+            //  Action buttons based on current stop status
+            switch stop.status {
+            case .pending:
+                Button(action: onMarkArrived) {
+                    HStack {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text("Mark Arrived").fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background(Color.orange).foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+
+            case .arrived:
+                Button(action: onMarkCompleted) {
+                    HStack {
+                        Image(systemName: stop.type == .pickup
+                              ? "shippingbox.and.arrow.backward.fill"
+                              : "checkmark.seal.fill")
+                        Text(stop.type == .pickup ? "Mark Loaded & Departed" : "Mark Delivered & Departed")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background(stop.type == .pickup ? Color.blue : Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+
+            case .completed:
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    if let c = stop.completedAt {
+                        Text("Completed \(c.formatted(date: .abbreviated, time: .shortened))")
+                    } else {
+                        Text("Completed")
+                    }
+                }
+                .font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
 }
 
 // MARK: - DashboardButton

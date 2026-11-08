@@ -87,6 +87,13 @@ struct AssignLoadView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
 
+                                if load.stops.count > 2 {
+                                    Label("\(load.stops.count) stops total",
+                                          systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                        .font(.caption).fontWeight(.semibold)
+                                        .foregroundColor(.purple)
+                                }
+
                                 HStack {
                                     Label(
                                         load.pickupDateTime.formatted(
@@ -247,8 +254,17 @@ struct AssignLoadView: View {
                     if let load = selectedLoad, let driver = selectedDriver {
                         VStack(alignment: .leading, spacing: 8) {
                             SummaryRow(icon: "shippingbox.fill", color: .blue, label: "Load", value: load.loadID)
-                            SummaryRow(icon: "mappin.circle.fill", color: .red, label: "Pickup", value: "\(load.pickupLocation)\n\(load.pickupDateTime.formatted(date: .abbreviated, time: .shortened))")
-                            SummaryRow(icon: "mappin.and.ellipse", color: .green, label: "Delivery", value: "\(load.deliveryLocation)\n\(load.deliveryDateTime.formatted(date: .abbreviated, time: .shortened))")
+
+                            //  Enumerate every stop so dispatcher confirms all of them before assigning
+                            ForEach(Array(load.stops.enumerated()), id: \.element.id) { index, stop in
+                                SummaryRow(
+                                    icon: stop.type == .pickup ? "mappin.circle.fill" : "mappin.and.ellipse",
+                                    color: stop.type == .pickup ? .red : .green,
+                                    label: "\(index + 1). \(stop.type.label)",
+                                    value: "\(stop.address)\n\(stop.datetime.formatted(date: .abbreviated, time: .shortened))"
+                                )
+                            }
+
                             SummaryRow(icon: "person.fill", color: .purple, label: "Driver", value: driver.name)
                             SummaryRow(icon: "truck.box.fill", color: .orange, label: "Vehicle", value: driver.vehicleUnit)
                             SummaryRow(icon: "clock.fill", color: .teal, label: "Duration", value: load.duration)
@@ -341,25 +357,9 @@ struct AssignLoadView: View {
             .addSnapshotListener { snapshot, error in
                 guard let docs = snapshot?.documents else { return }
                 DispatchQueue.main.async {
-                    loads = docs.map { doc in
-                        let d = doc.data()
-                        let pickupDT = (d["pickupDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                        let deliveryDT = (d["deliveryDateTime"] as? Timestamp)?.dateValue() ?? Date()
-                        return ScheduleLoad(
-                            id: doc.documentID,
-                            loadID: d["loadID"] as? String ?? doc.documentID,
-                            pickupLocation: d["pickupLocation"] as? String ?? "",
-                            deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                            pickupDateTime: pickupDT,
-                            deliveryDateTime: deliveryDT,
-                            commodity: d["commodity"] as? String ?? "",
-                            specialInstructions: d["specialInstructions"] as? String ?? "",
-                            rate: d["rate"] as? String ?? "",
-                            weight: d["weight"] as? String ?? "",
-                            status: d["status"] as? String ?? "Unassigned"
-                        )
-                    }
-                    .sorted { $0.pickupDateTime < $1.pickupDateTime }
+                    loads = docs
+                        .map { ScheduleLoad.from(docID: $0.documentID, data: $0.data()) }
+                        .sorted { $0.pickupDateTime < $1.pickupDateTime }
                     isLoading = false
                     fetchDriversWithAvailability()
                 }
@@ -583,15 +583,18 @@ struct SummaryRow: View {
 struct ScheduleLoad: Identifiable {
     let id: String
     var loadID: String
-    var pickupLocation: String
-    var deliveryLocation: String
-    var pickupDateTime: Date
-    var deliveryDateTime: Date
+    var stops: [Stop]
     var commodity: String
     var specialInstructions: String
     var rate: String
     var weight: String
-    var status: String = "Unassigned"  
+    var status: String = "Unassigned"
+
+    //  First-pickup / last-delivery accessors for existing display + conflict logic
+    var pickupLocation: String   { stops.firstPickup?.address ?? "" }
+    var deliveryLocation: String { stops.lastDelivery?.address ?? "" }
+    var pickupDateTime: Date     { stops.firstPickup?.datetime ?? Date() }
+    var deliveryDateTime: Date   { stops.lastDelivery?.datetime ?? Date() }
 
     var duration: String {
         let diff = deliveryDateTime.timeIntervalSince(pickupDateTime)
@@ -600,6 +603,19 @@ struct ScheduleLoad: Identifiable {
         if hours == 0 { return "\(minutes)m" }
         if minutes == 0 { return "\(hours)h" }
         return "\(hours)h \(minutes)m"
+    }
+
+    static func from(docID: String, data: [String: Any]) -> ScheduleLoad {
+        ScheduleLoad(
+            id: docID,
+            loadID: data["loadID"] as? String ?? docID,
+            stops: Load.decodeStops(from: data),
+            commodity: data["commodity"] as? String ?? "",
+            specialInstructions: data["specialInstructions"] as? String ?? "",
+            rate: data["rate"] as? String ?? "",
+            weight: data["weight"] as? String ?? "",
+            status: data["status"] as? String ?? "Unassigned"
+        )
     }
 }
 

@@ -165,6 +165,14 @@ struct AccidentReportView: View {
         } message: {
             Text("Your accident report has been submitted successfully.")
         }
+        .alert("Missing Information", isPresented: Binding(
+            get: { !errorMessage.isEmpty },
+            set: { if !$0 { errorMessage = "" } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = "" }
+        } message: {
+            Text(errorMessage)
+        }
     }
  
     func fetchDrivers() {

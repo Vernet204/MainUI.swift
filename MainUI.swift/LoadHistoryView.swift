@@ -148,6 +148,13 @@ struct LoadHistoryView: View {
                                 )
                                 .font(.subheadline).foregroundColor(.secondary)
 
+                                if load.stops.count > 2 {
+                                    Label("\(load.stops.count) stops",
+                                          systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                        .font(.caption).fontWeight(.semibold)
+                                        .foregroundColor(.purple)
+                                }
+
                                 HStack {
                                     Label(load.driverName, systemImage: "person.fill")
                                         .font(.caption).foregroundColor(.secondary)
@@ -268,10 +275,7 @@ struct LoadHistoryView: View {
                         return HistoryLoad(
                             id: doc.documentID,
                             loadID: d["loadID"] as? String ?? doc.documentID,
-                            pickupLocation: d["pickupLocation"] as? String ?? "",
-                            deliveryLocation: d["deliveryLocation"] as? String ?? "",
-                            pickupDate: d["pickupDate"] as? String ?? "—",
-                            dropoffDate: d["dropoffDate"] as? String ?? "—",
+                            stops: Load.decodeStops(from: d),
                             driverName: d["deliveredBy"] as? String
                                 ?? d["assignedDriver"] as? String ?? "—",
                             vehicleUnit: d["assignedVehicle"] as? String ?? "—",
@@ -308,10 +312,13 @@ struct LoadHistoryDetailView: View {
                 }
 
                 Section("Route") {
-                    DetailRow(label: "Pickup", value: load.pickupLocation)
-                    DetailRow(label: "Pickup Date", value: load.pickupDate)
-                    DetailRow(label: "Delivery", value: load.deliveryLocation)
-                    DetailRow(label: "Delivery Date", value: load.dropoffDate)
+                    if load.stops.isEmpty {
+                        Text("No stops on file").foregroundColor(.secondary).font(.caption)
+                    } else {
+                        ForEach(Array(load.stops.enumerated()), id: \.element.id) { index, stop in
+                            StopRow(index: index + 1, stop: stop)
+                        }
+                    }
                 }
 
                 Section("Driver & Vehicle") {
@@ -362,13 +369,21 @@ struct StatCard: View {
 struct HistoryLoad: Identifiable {
     let id: String
     var loadID: String
-    var pickupLocation: String
-    var deliveryLocation: String
-    var pickupDate: String
-    var dropoffDate: String
+    var stops: [Stop]
     var driverName: String
     var vehicleUnit: String
     var rate: String
     var weight: String
     var deliveredAt: Date?
+
+    var pickupLocation: String   { stops.firstPickup?.address ?? "" }
+    var deliveryLocation: String { stops.lastDelivery?.address ?? "" }
+    var pickupDate: String {
+        guard let dt = stops.firstPickup?.datetime else { return "—" }
+        return dt.formatted(date: .abbreviated, time: .shortened)
+    }
+    var dropoffDate: String {
+        guard let dt = stops.lastDelivery?.datetime else { return "—" }
+        return dt.formatted(date: .abbreviated, time: .shortened)
+    }
 }

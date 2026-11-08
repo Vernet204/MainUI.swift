@@ -11,7 +11,7 @@ class AuthManager: ObservableObject {
     private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
-        // ✅ Removed duplicate listenToAuthState() and temporary signOut()
+        
         listenToAuthState()
     }
 
@@ -21,10 +21,10 @@ class AuthManager: ObservableObject {
             guard let self = self else { return }
 
             if let firebaseUser = firebaseUser {
-                print("✅ Auth state: user found - \(firebaseUser.uid)")
+                print(" Auth state: user found - \(firebaseUser.uid)")
                 self.fetchUserProfile(uid: firebaseUser.uid)
             } else {
-                print("🚪 Auth state: no user")
+                print(" Auth state: no user")
                 DispatchQueue.main.async {
                     self.appUser = nil
                     self.isLoading = false
@@ -45,28 +45,28 @@ class AuthManager: ObservableObject {
 
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("❌ Firestore error: \(error.localizedDescription)")
+                        print(" Firestore error: \(error.localizedDescription)")
                         self.isLoading = false
                         return
                     }
 
                     guard let data = snapshot?.data() else {
-                        print("❌ No Firestore document found for UID: \(uid)")
+                        print(" No Firestore document found for UID: \(uid)")
                         self.isLoading = false
                         return
                     }
 
-                    print("📄 Raw Firestore data: \(data)")
+                    print(" Raw Firestore data: \(data)")
 
                     let name        = data["name"] as? String ?? ""
                     let role        = data["role"] as? String ?? ""
                     let email       = data["email"] as? String ?? ""
                     let firstLogin  = data["firstLogin"] as? Bool ?? false
-                    let vehicleUnit = data["vehicleUnit"] as? String ?? "" // ✅ added
+                    let vehicleUnit = data["vehicleUnit"] as? String ?? ""
 
-                    print("👤 Name: \(name)")
-                    print("👤 Role: \(role)")
-                    print("🚛 Vehicle Unit: \(vehicleUnit)") // ✅ added
+                    print(" Name: \(name)")
+                    print(" Role: \(role)")
+                    print(" Vehicle Unit: \(vehicleUnit)")
 
                     self.appUser = AppUser(
                         id: UUID(),
@@ -75,10 +75,10 @@ class AuthManager: ObservableObject {
                         password: "",
                         role: role,
                         isFirstLogin: firstLogin,
-                        vehicleUnit: vehicleUnit // ✅ added
+                        vehicleUnit: vehicleUnit
                     )
 
-                    print("✅ appUser set: \(self.appUser?.name ?? "nil")")
+                    print(" appUser set: \(self.appUser?.name ?? "nil")")
                     self.isLoading = false
                 }
             }
